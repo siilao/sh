@@ -1,6 +1,6 @@
 #!/bin/bash
 
-sh_v="1.9.6"
+sh_v="1.9.9"
 
 huang='\033[33m'    # 黄色    ${yellow}
 bai='\033[0m'       # 白色    ${white}
@@ -350,6 +350,11 @@ install_ldnmp() {
           # php7.4重启
           "docker exec php74 chmod -R 777 /var/www/html"
           "docker restart php74 > /dev/null 2>&1"
+
+          # redis调优
+          "docker exec -it redis redis-cli CONFIG SET maxmemory 512mb > /dev/null 2>&1"
+          "docker exec -it redis redis-cli CONFIG SET maxmemory-policy allkeys-lru > /dev/null 2>&1"
+
       )
 
       total_commands=${#commands[@]}  # 计算总命令数
@@ -490,13 +495,13 @@ if [[ $yuming =~ $domain_regex ]]; then
 else
   echo "域名格式不正确，请重新输入"
   break_end
-  kejilion
+  siilao
 fi
 
 if [ -e /home/web/conf.d/$yuming.conf ]; then
     echo -e "${huang}当前 ${yuming} 域名已被使用，请前往31站点管理，删除站点，再部署 ${webname} ！${bai}"
     break_end
-    kejilion
+    siilao
 else
     echo "当前 ${yuming} 域名可用"
 fi
@@ -788,7 +793,7 @@ ldnmp_install_status_one() {
    if docker inspect "php" &>/dev/null; then
     echo -e "${huang}LDNMP环境已安装。无法再次安装。可以使用37. 更新LDNMP环境${bai}"
     break_end
-    kejilion
+    siilao
    else
     echo
    fi
@@ -1170,13 +1175,9 @@ case $choice in
       cpu_info=$(lscpu | grep 'BIOS Model name' | awk -F': ' '{print $2}' | sed 's/^[ \t]*//')
     fi
 
-    if [ -f /etc/alpine-release ]; then
-        # Alpine Linux 使用以下命令获取 CPU 使用率
-        cpu_usage_percent=$(top -bn1 | grep '^CPU' | awk '{print " "$4}' | cut -c 1-2)
-    else
-        # 其他系统使用以下命令获取 CPU 使用率
-        cpu_usage_percent=$(top -bn1 | grep "Cpu(s)" | awk '{print " "$2}')
-    fi
+
+    cpu_usage_percent=$(awk '{u=$2+$4; t=$2+$4+$5; if (NR==1){u1=u; t1=t;} else printf "%.0f\n", (($2+$4-u1) * 100 / (t-t1))}' \
+        <(grep 'cpu ' /proc/stat) <(sleep 1; grep 'cpu ' /proc/stat))
 
 
     cpu_cores=$(nproc)
@@ -1981,6 +1982,7 @@ case $choice in
       echo "14. nxtrace快速回程测试脚本"
       echo "15. nxtrace指定IP回程测试脚本"
       echo "16. ludashi2020三网线路测试"
+      echo "17. i-abc多功能测速脚本"
       echo ""
       echo "----硬件性能测试----------"
       echo "21. yabs性能测试"
@@ -2062,6 +2064,12 @@ case $choice in
               clear
               curl https://raw.githubusercontent.com/ludashi2020/backtrace/main/install.sh -sSf | sh
               ;;
+
+          17)
+              clear
+              bash <(curl -sL bash.icu/speedtest)
+              ;;
+
 
           21)
               clear
@@ -2866,7 +2874,7 @@ case $choice in
       docker run -d \
         --name vaultwarden \
         -p 3280:80 \
-        -v /home/web/docker/vaultwarden/data:/data \
+        -v /home/web/html/$yuming/vaultwarden/data:/data \
         -e LOGIN_RATELIMIT_MAX_BURST=10 \
         -e LOGIN_RATELIMIT_SECONDS=60 \
         -e ADMIN_RATELIMIT_MAX_BURST=10 \
@@ -3100,7 +3108,7 @@ case $choice in
 
       install_ssltls
 
-      wget -O /home/web/conf.d/$yuming.conf https://raw.githubusercontent.com/kejilion/nginx/main/reverse-proxy-domain.conf
+      wget -O /home/web/conf.d/$yuming.conf https://raw.githubusercontent.com/siilao/sh/main/nginx/reverse-proxy-domain.conf
       sed -i "s/yuming.com/$yuming/g" /home/web/conf.d/$yuming.conf
       sed -i "s|fandaicom|$fandai_yuming|g" /home/web/conf.d/$yuming.conf
 
@@ -3194,7 +3202,7 @@ case $choice in
         echo "------------------------"
         echo "1. 申请/更新域名证书"
         echo "3. 清理站点缓存                    4. 查看站点分析报告"
-        echo "5. 查看全局配置                    6. 查看站点配置"
+        echo "5. 编辑全局配置                    6. 编辑站点配置"
         echo "------------------------"
         echo "7. 删除指定站点                    8. 删除指定数据库"
         echo "------------------------"
@@ -3226,12 +3234,17 @@ case $choice in
 
 
             3)
-                docker exec -it nginx rm -rf /var/cache/nginx
+                # docker exec -it nginx rm -rf /var/cache/nginx
                 docker restart nginx
                 docker exec php php -r 'opcache_reset();'
                 docker restart php
                 docker exec php74 php -r 'opcache_reset();'
                 docker restart php74
+                docker restart redis
+                docker exec redis redis-cli FLUSHALL
+                docker exec -it redis redis-cli CONFIG SET maxmemory 512mb
+                docker exec -it redis redis-cli CONFIG SET maxmemory-policy allkeys-lru
+
                 ;;
             4)
                 install goaccess
@@ -3246,7 +3259,7 @@ case $choice in
                 ;;
 
             6)
-                read -p "查看站点配置，请输入你的域名: " yuming
+                read -p "编辑站点配置，请输入你要编辑的域名: " yuming
                 install nano
                 nano /home/web/conf.d/$yuming.conf
                 docker restart nginx
@@ -3374,7 +3387,7 @@ case $choice in
       read -p "输入远程服务器密码: " usepasswd
 
       cd ~
-      wget -O ${useip}_beifen.sh https://raw.githubusercontent.com/kejilion/sh/main/beifen.sh > /dev/null 2>&1
+      wget -O ${useip}_beifen.sh https://raw.githubusercontent.com/siilao/sh/main/beifen.sh > /dev/null 2>&1
       chmod +x ${useip}_beifen.sh
 
       sed -i "s/0.0.0.0/$useip/g" ${useip}_beifen.sh
@@ -3432,7 +3445,7 @@ case $choice in
               echo "------------------------"
               echo "11. 配置拦截参数"
               echo "------------------------"
-              echo "21. cloudflare模式"
+              echo "21. cloudflare模式                22. 高负载开启5秒盾"
               echo "------------------------"
               echo "9. 卸载防御程序"
               echo "------------------------"
@@ -3499,6 +3512,7 @@ case $choice in
                   9)
                       docker rm -f fail2ban
                       rm -rf /path/to/fail2ban
+                      crontab -l | grep -v "CF-Under-Attack.sh" | crontab - 2>/dev/null
                       echo "Fail2Ban防御程序已卸载"
                       break
                       ;;
@@ -3532,6 +3546,38 @@ case $choice in
                       echo "已配置cloudflare模式，可在cf后台，站点-安全性-事件中查看拦截记录"
                       ;;
 
+                  22)
+                      echo -e "${huang}网站每5分钟自动检测，当达检测到高负载会自动开盾，低负载也会自动关闭5秒盾。${bai}"
+                      echo "--------------"
+                      echo "获取CF参数: "
+                      echo -e "到cf后台右上角我的个人资料，选择左侧API令牌，获取${huang}Global API Key${bai}"
+                      echo -e "到cf后台域名概要页面右下方获取${huang}区域ID${bai}"
+                      echo "https://dash.cloudflare.com/login"
+                      echo "--------------"
+                      read -p "输入CF的账号: " cfuser
+                      read -p "输入CF的Global API Key: " cftoken
+                      read -p "输入CF中域名的区域ID: " cfzonID
+
+                      cd ~
+                      install jq bc
+                      curl -sS -O https://raw.githubusercontent.com/siilao/sh/main/CF-Under-Attack.sh
+                      chmod +x CF-Under-Attack.sh
+                      sed -i "s/AAAA/$cfuser/g" ~/CF-Under-Attack.sh
+                      sed -i "s/BBBB/$cftoken/g" ~/CF-Under-Attack.sh
+                      sed -i "s/CCCC/$cfzonID/g" ~/CF-Under-Attack.sh
+
+                      cron_job="*/5 * * * * ~/CF-Under-Attack.sh"
+
+                      existing_cron=$(crontab -l 2>/dev/null | grep -F "$cron_job")
+
+                      if [ -z "$existing_cron" ]; then
+                          (crontab -l 2>/dev/null; echo "$cron_job") | crontab -
+                          echo "高负载自动开盾脚本已添加"
+                      else
+                          echo "自动开盾脚本已存在，无需添加"
+                      fi
+
+                      ;;
                   0)
                       break
                       ;;
@@ -3620,6 +3666,9 @@ case $choice in
                   docker cp /home/custom_mysql_config.cnf mysql:/etc/mysql/conf.d/
                   rm -rf /home/custom_mysql_config.cnf
 
+                  docker exec -it redis redis-cli CONFIG SET maxmemory 512mb
+                  docker exec -it redis redis-cli CONFIG SET maxmemory-policy allkeys-lru
+
                   docker restart nginx
                   docker restart php
                   docker restart php74
@@ -3643,6 +3692,9 @@ case $choice in
                   wget -O /home/custom_mysql_config.cnf https://raw.githubusercontent.com/siilao/sh/main/custom_mysql_config.cnf
                   docker cp /home/custom_mysql_config.cnf mysql:/etc/mysql/conf.d/
                   rm -rf /home/custom_mysql_config.cnf
+
+                  docker exec -it redis redis-cli CONFIG SET maxmemory 1024mb
+                  docker exec -it redis redis-cli CONFIG SET maxmemory-policy allkeys-lru
 
                   docker restart nginx
                   docker restart php
@@ -3824,8 +3876,8 @@ case $choice in
                           -p 80:80 \
                           -p 81:$docker_port \
                           -p 443:443 \
-                          -v /home/web/docker/npm/data:/data \
-                          -v /home/web/docker/npm/letsencrypt:/etc/letsencrypt \
+                          -v /home/docker/npm/data:/data \
+                          -v /home/docker/npm/letsencrypt:/etc/letsencrypt \
                           --restart=always \
                           $docker_img"
             docker_describe="如果您已经安装了其他面板工具或者LDNMP建站环境，建议先卸载，再安装npm！"
@@ -3844,7 +3896,7 @@ case $choice in
             docker_port=5244
             docker_rum="docker run -d \
                                 --restart=always \
-                                -v /home/web/docker/alist:/opt/alist/data \
+                                -v /home/docker/alist:/opt/alist/data \
                                 -p 5244:5244 \
                                 -e PUID=0 \
                                 -e PGID=0 \
@@ -3868,7 +3920,7 @@ case $choice in
             docker_rum="docker run -d \
                                 --name ubuntu-novnc \
                                 -p 6080:80 \
-                                -v /home/web/docker/ubuntu-novnc:/workspace:rw \
+                                -v /home/docker/ubuntu-novnc:/workspace:rw \
                                 -e HTTP_PASSWORD=$rootpasswd \
                                 -e RESOLUTION=1280x720 \
                                 --restart=always \
@@ -3901,8 +3953,8 @@ case $choice in
                                   -p 8081:8081 \
                                   -p 6881:6881 \
                                   -p 6881:6881/udp \
-                                  -v /home/web/docker/qbittorrent/config:/config \
-                                  -v /home/web/docker/qbittorrent/downloads:/downloads \
+                                  -v /home/docker/qbittorrent/config:/config \
+                                  -v /home/docker/qbittorrent/downloads:/downloads \
                                   --restart unless-stopped \
                                   lscr.io/linuxserver/qbittorrent:latest"
             docker_describe="qbittorrent离线BT磁力下载服务"
@@ -3919,7 +3971,7 @@ case $choice in
 
                     clear
                     echo "poste.io已安装，访问地址: "
-                    yuming=$(cat /home/web/docker/mail.txt)
+                    yuming=$(cat /home/docker/mail.txt)
                     echo "https://$yuming"
                     echo ""
 
@@ -3937,11 +3989,11 @@ case $choice in
                             docker rm -f mailserver
                             docker rmi -f analogic/poste.io
 
-                            yuming=$(cat /home/web/docker/mail.txt)
+                            yuming=$(cat /home/docker/mail.txt)
                             docker run \
                                 --net=host \
                                 -e TZ=Europe/Prague \
-                                -v /home/web/docker/mail:/data \
+                                -v /home/docker/mail:/data \
                                 --name "mailserver" \
                                 -h "$yuming" \
                                 --restart=always \
@@ -3958,8 +4010,8 @@ case $choice in
                             clear
                             docker rm -f mailserver
                             docker rmi -f analogic/poste.io
-                            rm /home/web/docker/mail.txt
-                            rm -rf /home/web/docker/mail
+                            rm /home/docker/mail.txt
+                            rm -rf /home/docker/mail
                             echo "应用已卸载"
                             ;;
                         0)
@@ -4000,8 +4052,8 @@ case $choice in
                     clear
 
                     read -p "请设置邮箱域名 例如 mail.yuming.com : " yuming
-                    mkdir -p /home/web/docker      # 递归创建目录
-                    echo "$yuming" > /home/web/docker/mail.txt  # 写入文件
+                    mkdir -p /home/docker      # 递归创建目录
+                    echo "$yuming" > /home/docker/mail.txt  # 写入文件
                     echo "------------------------"
                     ip_address
                     echo "先解析这些DNS记录"
@@ -4022,7 +4074,7 @@ case $choice in
                     docker run \
                         --net=host \
                         -e TZ=Europe/Prague \
-                        -v /home/web/docker/mail:/data \
+                        -v /home/docker/mail:/data \
                         --name "mailserver" \
                         -h "$yuming" \
                         --restart=always \
@@ -4098,7 +4150,7 @@ case $choice in
                             docker rm -f db
                             docker rmi -f mongo:latest
                             # docker rmi -f mongo:6
-                            rm -rf /home/web/docker/mongo
+                            rm -rf /home/docker/mongo
                             echo "应用已卸载"
                             ;;
                         0)
@@ -4122,7 +4174,7 @@ case $choice in
                     clear
                     install_docker
                     docker run --name db -d --restart=always \
-                        -v /home/web/docker/mongo/dump:/dump \
+                        -v /home/docker/mongo/dump:/dump \
                         mongo:latest --replSet rs5 --oplogSize 256
                     sleep 1
                     docker exec -it db mongosh --eval "printjson(rs.initiate())"
@@ -4161,7 +4213,7 @@ case $choice in
             docker_rum="docker run -d -p 82:80 -p 3308:3306 \
                               -e ADMINER_USER="root" -e ADMINER_PASSWD="password" \
                               -e BIND_ADDRESS="false" \
-                              -v /home/web/docker/zentao-server/:/opt/zbox/ \
+                              -v /home/docker/zentao-server/:/opt/zbox/ \
                               --add-host smtp.exmail.qq.com:163.177.90.125 \
                               --name zentao-server \
                               --restart=always \
@@ -4179,7 +4231,7 @@ case $choice in
             docker_img="whyour/qinglong:latest"
             docker_port=5700
             docker_rum="docker run -d \
-                      -v /home/web/docker/qinglong/data:/ql/data \
+                      -v /home/docker/qinglong/data:/ql/data \
                       -p 5700:5700 \
                       --name qinglong \
                       --hostname qinglong \
@@ -4225,9 +4277,9 @@ case $choice in
                             docker rm -f aria2
                             docker rmi -f p3terx/aria2-pro
 
-                            cd /home/ && mkdir -p web/docker/cloud && cd web/docker/cloud && mkdir temp_data && mkdir -vp cloudreve/{uploads,avatar} && touch cloudreve/conf.ini && touch cloudreve/cloudreve.db && mkdir -p aria2/config && mkdir -p data/aria2 && chmod -R 777 data/aria2
-                            curl -o /home/web/docker/cloud/docker-compose.yml https://raw.githubusercontent.com/siilao/sh/main/docker/cloudreve-docker-compose.yml
-                            cd /home/web/docker/cloud/ && docker compose up -d
+                            cd /home/ && mkdir -p docker/cloud && cd docker/cloud && mkdir temp_data && mkdir -vp cloudreve/{uploads,avatar} && touch cloudreve/conf.ini && touch cloudreve/cloudreve.db && mkdir -p aria2/config && mkdir -p data/aria2 && chmod -R 777 data/aria2
+                            curl -o /home/docker/cloud/docker-compose.yml https://raw.githubusercontent.com/siilao/sh/main/docker/cloudreve-docker-compose.yml
+                            cd /home/docker/cloud/ && docker compose up -d
 
 
                             clear
@@ -4252,7 +4304,7 @@ case $choice in
                             docker rmi -f cloudreve/cloudreve:latest
                             docker rm -f aria2
                             docker rmi -f p3terx/aria2-pro
-                            rm -rf /home/web/docker/cloud
+                            rm -rf /home/docker/cloud
                             echo "应用已卸载"
                             ;;
                         0)
@@ -4275,9 +4327,9 @@ case $choice in
                     [Yy])
                     clear
                     install_docker
-                    cd /home/ && mkdir -p web/docker/cloud && cd web/docker/cloud && mkdir temp_data && mkdir -vp cloudreve/{uploads,avatar} && touch cloudreve/conf.ini && touch cloudreve/cloudreve.db && mkdir -p aria2/config && mkdir -p data/aria2 && chmod -R 777 data/aria2
-                    curl -o /home/web/docker/cloud/docker-compose.yml https://raw.githubusercontent.com/siilao/sh/main/docker/cloudreve-docker-compose.yml
-                    cd /home/web/docker/cloud/ && docker compose up -d
+                    cd /home/ && mkdir -p docker/cloud && cd docker/cloud && mkdir temp_data && mkdir -vp cloudreve/{uploads,avatar} && touch cloudreve/conf.ini && touch cloudreve/cloudreve.db && mkdir -p aria2/config && mkdir -p data/aria2 && chmod -R 777 data/aria2
+                    curl -o /home/docker/cloud/docker-compose.yml https://raw.githubusercontent.com/siilao/sh/main/docker/main/cloudreve-docker-compose.yml
+                    cd /home/docker/cloud/ && docker compose up -d
 
 
                     clear
@@ -4314,8 +4366,8 @@ case $choice in
                       -e TZ=Asia/Shanghai \
                       -e PUID=1000 \
                       -e PGID=1000 \
-                      -v /home/web/docker/easyimage/config:/app/web/config \
-                      -v /home/web/docker/easyimage/i:/app/web/i \
+                      -v /home/docker/easyimage/config:/app/web/config \
+                      -v /home/docker/easyimage/i:/app/web/i \
                       --restart unless-stopped \
                       ddsderek/easyimage:latest"
             docker_describe="简单图床是一个简单的图床程序"
@@ -4330,9 +4382,9 @@ case $choice in
             docker_img="linuxserver/emby:latest"
             docker_port=8096
             docker_rum="docker run -d --name=emby --restart=always \
-                        -v /homeo/web/docker/emby/config:/config \
-                        -v /homeo/web/docker/emby/share1:/mnt/share1 \
-                        -v /homeo/web/docker/emby/share2:/mnt/share2 \
+                        -v /homeo/docker/emby/config:/config \
+                        -v /homeo/docker/emby/share1:/mnt/share1 \
+                        -v /homeo/docker/emby/share2:/mnt/share2 \
                         -v /mnt/notify:/mnt/notify \
                         -p 8096:8096 -p 8920:8920 \
                         -e UID=1000 -e GID=100 -e GIDLIST=100 \
@@ -4363,8 +4415,8 @@ case $choice in
             docker_port=3000
             docker_rum="docker run -d \
                             --name adguardhome \
-                            -v /home/web/docker/adguardhome/work:/opt/adguardhome/work \
-                            -v /home/web/docker/adguardhome/conf:/opt/adguardhome/conf \
+                            -v /home/docker/adguardhome/work:/opt/adguardhome/work \
+                            -v /home/docker/adguardhome/conf:/opt/adguardhome/conf \
                             -p 53:53/tcp \
                             -p 53:53/udp \
                             -p 3000:3000/tcp \
@@ -4387,8 +4439,8 @@ case $choice in
             docker_rum="docker run -d -p 8082:80 \
                         --restart=always \
                         --name onlyoffice \
-                        -v /home/web/docker/onlyoffice/DocumentServer/logs:/var/log/onlyoffice  \
-                        -v /home/web/docker/onlyoffice/DocumentServer/data:/var/www/onlyoffice/Data  \
+                        -v /home/docker/onlyoffice/DocumentServer/logs:/var/log/onlyoffice  \
+                        -v /home/docker/onlyoffice/DocumentServer/data:/var/www/onlyoffice/Data  \
                          onlyoffice/documentserver"
             docker_describe="onlyoffice是一款开源的在线office工具，太强大了！"
             docker_url="官网介绍: https://www.onlyoffice.com/"
@@ -4477,7 +4529,7 @@ case $choice in
                     --name portainer \
                     -p 9050:9000 \
                     -v /var/run/docker.sock:/var/run/docker.sock \
-                    -v /home/web/docker/portainer:/data \
+                    -v /home/docker/portainer:/data \
                     --restart always \
                     portainer/portainer"
             docker_describe="portainer是一个轻量级的docker容器管理面板"
@@ -4492,7 +4544,7 @@ case $choice in
             docker_name="vscode-web"
             docker_img="codercom/code-server"
             docker_port=8180
-            docker_rum="docker run -d -p 8180:8080 -v /home/web/docker/vscode-web:/home/coder/.local/share/code-server --name vscode-web --restart always codercom/code-server"
+            docker_rum="docker run -d -p 8180:8080 -v /home/docker/vscode-web:/home/coder/.local/share/code-server --name vscode-web --restart always codercom/code-server"
             docker_describe="VScode是一款强大的在线代码编写工具"
             docker_url="官网介绍: https://github.com/coder/code-server"
             docker_use="sleep 3"
@@ -4506,7 +4558,7 @@ case $choice in
             docker_rum="docker run -d \
                             --name=uptime-kuma \
                             -p 3003:3001 \
-                            -v /home/web/docker/uptime-kuma/uptime-kuma-data:/app/data \
+                            -v /home/docker/uptime-kuma/uptime-kuma-data:/app/data \
                             --restart=always \
                             louislam/uptime-kuma:latest"
             docker_describe="Uptime Kuma 易于使用的自托管监控工具"
@@ -4520,7 +4572,7 @@ case $choice in
             docker_name="memos"
             docker_img="ghcr.io/usememos/memos:latest"
             docker_port=5230
-            docker_rum="docker run -d --name memos -p 5230:5230 -v /home/web/docker/memos:/var/opt/memos --restart always ghcr.io/usememos/memos:latest"
+            docker_rum="docker run -d --name memos -p 5230:5230 -v /home/docker/memos:/var/opt/memos --restart always ghcr.io/usememos/memos:latest"
             docker_describe="Memos是一款轻量级、自托管的备忘录中心"
             docker_url="官网介绍: https://github.com/usememos/memos"
             docker_use=""
@@ -4544,9 +4596,8 @@ case $choice in
                           -e DOCKER_MODS=linuxserver/mods:universal-package-install \
                           -e INSTALL_PACKAGES=font-noto-cjk \
                           -p 3083:3000 \
-                          -v /home/web/docker/webtop/data:/config \
+                          -v /home/docker/webtop/data:/config \
                           -v /var/run/docker.sock:/var/run/docker.sock \
-                          --device /dev/dri:/dev/dri \
                           --shm-size="1gb" \
                           --restart unless-stopped \
                           lscr.io/linuxserver/webtop:latest"
@@ -4563,7 +4614,7 @@ case $choice in
             docker_img="nextcloud:latest"
             docker_port=8989
             rootpasswd=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c16)
-            docker_rum="docker run -d --name nextcloud --restart=always -p 8989:80 -v /home/web/docker/nextcloud:/var/www/html -e NEXTCLOUD_ADMIN_USER=nextcloud -e NEXTCLOUD_ADMIN_PASSWORD=$rootpasswd nextcloud"
+            docker_rum="docker run -d --name nextcloud --restart=always -p 8989:80 -v /home/docker/nextcloud:/var/www/html -e NEXTCLOUD_ADMIN_USER=nextcloud -e NEXTCLOUD_ADMIN_PASSWORD=$rootpasswd nextcloud"
             docker_describe="Nextcloud拥有超过 400,000 个部署，是您可以下载的最受欢迎的本地内容协作平台"
             docker_url="官网介绍: https://nextcloud.com/"
             docker_use="echo \"账号: nextcloud  密码: $rootpasswd\""
@@ -4575,7 +4626,7 @@ case $choice in
             docker_name="qd"
             docker_img="qdtoday/qd:latest"
             docker_port=8923
-            docker_rum="docker run -d --name qd -p 8923:80 -v /home/web/docker/qd/config:/usr/src/app/config qdtoday/qd"
+            docker_rum="docker run -d --name qd -p 8923:80 -v /home/docker/qd/config:/usr/src/app/config qdtoday/qd"
             docker_describe="QD-Today是一个HTTP请求定时任务自动执行框架"
             docker_url="官网介绍: https://qd-today.github.io/qd/zh_CN/"
             docker_use=""
@@ -4586,7 +4637,7 @@ case $choice in
             docker_name="dockge"
             docker_img="louislam/dockge:latest"
             docker_port=5003
-            docker_rum="docker run -d --name dockge --restart unless-stopped -p 5003:5001 -v /var/run/docker.sock:/var/run/docker.sock -v /home/web/docker/dockge/data:/app/data -v  /home/web/docker/dockge/stacks:/home/docker/dockge/stacks -e DOCKGE_STACKS_DIR=/home/docker/dockge/stacks louislam/dockge"
+            docker_rum="docker run -d --name dockge --restart unless-stopped -p 5003:5001 -v /var/run/docker.sock:/var/run/docker.sock -v /home/docker/dockge/data:/app/data -v  /home/docker/dockge/stacks:/home/docker/dockge/stacks -e DOCKGE_STACKS_DIR=/home/docker/dockge/stacks louislam/dockge"
             docker_describe="dockge是一个可视化的docker-compose容器管理面板"
             docker_url="官网介绍: https://github.com/louislam/dockge"
             docker_use=""
@@ -4618,9 +4669,9 @@ case $choice in
             docker_rum="docker run --name=searxng \
                             -d --init \
                             --restart=unless-stopped \
-                            -v /home/web/docker/searxng/config:/etc/searxng \
-                            -v /home/web/docker/searxng/templates:/usr/local/searxng/searx/templates/simple \
-                            -v /home/web/docker/searxng/theme:/usr/local/searxng/searx/static/themes/simple \
+                            -v /home/docker/searxng/config:/etc/searxng \
+                            -v /home/docker/searxng/templates:/usr/local/searxng/searx/templates/simple \
+                            -v /home/docker/searxng/theme:/usr/local/searxng/searx/static/themes/simple \
                             -p 8700:8080/tcp \
                             alandoyle/searxng:latest"
             docker_describe="searxng是一个私有且隐私的搜索引擎站点"
@@ -4643,8 +4694,8 @@ case $choice in
                             -p 2342:2342 \
                             -e PHOTOPRISM_UPLOAD_NSFW="true" \
                             -e PHOTOPRISM_ADMIN_PASSWORD="$rootpasswd" \
-                            -v /home/web/docker/photoprism/storage:/photoprism/storage \
-                            -v /home/web/docker/photoprism/Pictures:/photoprism/originals \
+                            -v /home/docker/photoprism/storage:/photoprism/storage \
+                            -v /home/docker/photoprism/Pictures:/photoprism/originals \
                             photoprism/photoprism"
             docker_describe="photoprism非常强大的私有相册系统"
             docker_url="官网介绍: https://www.photoprism.app/"
@@ -4662,9 +4713,9 @@ case $choice in
                             --name s-pdf \
                             --restart=always \
                              -p 8020:8080 \
-                             -v /home/web/docker/s-pdf/trainingData:/usr/share/tesseract-ocr/5/tessdata \
-                             -v /home/web/docker/s-pdf/extraConfigs:/configs \
-                             -v /home/web/docker/s-pdf/logs:/logs \
+                             -v /home/docker/s-pdf/trainingData:/usr/share/tesseract-ocr/5/tessdata \
+                             -v /home/docker/s-pdf/extraConfigs:/configs \
+                             -v /home/docker/s-pdf/logs:/logs \
                              -e DOCKER_ENABLE_SECURITY=false \
                              frooodle/s-pdf:latest"
             docker_describe="这是一个强大的本地托管基于 Web 的 PDF 操作工具，使用 docker，允许您对 PDF 文件执行各种操作，例如拆分合并、转换、重新组织、添加图像、旋转、压缩等。"
@@ -4678,7 +4729,7 @@ case $choice in
             docker_name="drawio"
             docker_img="jgraph/drawio"
             docker_port=7080
-            docker_rum="docker run -d --restart=always --name drawio -p 7080:8080 -v /home/web/docker/drawio:/var/lib/drawio jgraph/drawio"
+            docker_rum="docker run -d --restart=always --name drawio -p 7080:8080 -v /home/docker/drawio:/var/lib/drawio jgraph/drawio"
             docker_describe="这是一个强大图表绘制软件。思维导图，拓扑图，流程图，都能画"
             docker_url="官网介绍: https://www.drawio.com/"
             docker_use=""
@@ -4691,9 +4742,9 @@ case $choice in
             docker_img="hslr/sun-panel"
             docker_port=3009
             docker_rum="docker run -d --restart=always -p 3009:3002 \
-                            -v /home/web/docker/sun-panel/conf:/app/conf \
-                            -v /home/web/docker/sun-panel/uploads:/app/uploads \
-                            -v /home/web/docker/sun-panel/database:/app/database \
+                            -v /home/docker/sun-panel/conf:/app/conf \
+                            -v /home/docker/sun-panel/uploads:/app/uploads \
+                            -v /home/docker/sun-panel/database:/app/database \
                             --name sun-panel \
                             hslr/sun-panel"
             docker_describe="Sun-Panel服务器、NAS导航面板、Homepage、浏览器首页"
@@ -4711,7 +4762,7 @@ case $choice in
                             --name pingvin-share \
                             --restart always \
                             -p 3060:3000 \
-                            -v /home/web/docker/pingvin-share/data:/opt/app/backend/data \
+                            -v /home/docker/pingvin-share/data:/opt/app/backend/data \
                             stonith404/pingvin-share"
             docker_describe="Pingvin Share 是一个可自建的文件分享平台，是 WeTransfer 的一个替代品"
             docker_url="官网介绍: https://github.com/stonith404/pingvin-share"
@@ -4727,7 +4778,7 @@ case $choice in
             docker_port=8035
             docker_rum="docker run -d --restart unless-stopped \
                             -p 8035:3000 \
-                            -v /home/web/docker/moments/data:/app/data \
+                            -v /home/docker/moments/data:/app/data \
                             -v /etc/localtime:/etc/localtime:ro \
                             -v /etc/timezone:/etc/timezone:ro \
                             --name moments \
@@ -4942,6 +4993,7 @@ case $choice in
       echo "------------------------"
       echo "21. 本机host解析                       22. fail2banSSH防御程序"
       echo "23. 限流自动关机                       24. ROOT私钥登录模式"
+      echo "25. TG-bot系统监控预警"
       echo "------------------------"
       echo "66. 一条龙系统调优"
       echo "------------------------"
@@ -5168,6 +5220,9 @@ EOF
               echo "23. CentOS 7"
               echo "------------------------"
               echo "31. Alpine Linux"
+              echo "32. Rocky Linux"
+              echo "33. Alma Linux"
+              echo "34. Fedora Linux"
               echo "------------------------"
               echo "41. Windows 11"
               echo "42. Windows 10"
@@ -5260,6 +5315,27 @@ EOF
                 31)
                   dd_xitong_1
                   bash InstallNET.sh -alpine
+                  reboot
+                  exit
+                  ;;
+
+                32)
+                  dd_xitong_1
+                  bash InstallNET.sh -rockylinux
+                  reboot
+                  exit
+                  ;;
+
+                33)
+                  dd_xitong_3
+                  bash reinstall.sh alma
+                  reboot
+                  exit
+                  ;;
+
+                34)
+                  dd_xitong_3
+                  bash reinstall.sh fedora
                   reboot
                   exit
                   ;;
@@ -6418,6 +6494,99 @@ EOF
 
               ;;
 
+          25)
+              root_use
+              echo "TG-bot监控预警功能"
+              echo "------------------------------------------------"
+              echo "您需要配置tg机器人API和接收预警的用户ID，即可实现本机CPU，内存，硬盘，流量，SSH登录的实时监控预警"
+              echo "到达阈值后会向用户发预警消息"
+              echo -e "${hui}-关于流量，重启服务器将重新计算-${bai}"
+              read -p "确定继续吗？(Y/N): " choice
+
+              case "$choice" in
+                [Yy])
+                  cd ~
+                  install nano tmux bc jq
+                  if [ -f ~/TG-check-notify.sh ]; then
+                      chmod +x ~/TG-check-notify.sh
+                      nano ~/TG-check-notify.sh
+                  else
+                      curl -sS -O https://raw.githubusercontent.com/siilao/sh/main/TG-check-notify.sh
+                      chmod +x ~/TG-check-notify.sh
+                      nano ~/TG-check-notify.sh
+                  fi
+                  tmux kill-session -t TG-check-notify > /dev/null 2>&1
+                  tmux new -d -s TG-check-notify "~/TG-check-notify.sh"
+                  crontab -l | grep -v '~/TG-check-notify.sh' | crontab - > /dev/null 2>&1
+                  (crontab -l ; echo "@reboot tmux new -d -s TG-check-notify '~/TG-check-notify.sh'") | crontab - > /dev/null 2>&1
+
+                  curl -sS -O https://raw.githubusercontent.com/siilao/sh/main/TG-SSH-check-notify.sh
+                  sed -i "3i$(grep '^TELEGRAM_BOT_TOKEN=' ~/TG-check-notify.sh)" TG-SSH-check-notify.sh
+                  sed -i "4i$(grep '^CHAT_ID=' ~/TG-check-notify.sh)" TG-SSH-check-notify.sh
+                  chmod +x ~/TG-SSH-check-notify.sh
+
+                  # 添加到 ~/.profile 文件中
+                  if ! grep -q 'bash ~/TG-SSH-check-notify.sh' ~/.profile; then
+                      echo 'bash ~/TG-SSH-check-notify.sh' >> ~/.profile
+                  fi
+
+                  source ~/.profile
+
+                  clear
+                  echo "TG-bot预警系统已启动"
+                  echo -e "${hui}你还可以将root目录中的TG-check-notify.sh预警文件放到其他机器上直接使用！${bai}"
+                  ;;
+                [Nn])
+                  echo "已取消"
+                  ;;
+                *)
+                  echo "无效的选择，请输入 Y 或 N。"
+                  ;;
+              esac
+
+              ;;
+
+
+
+
+          31)
+            clear
+            install sshpass
+
+            remote_ip="66.42.61.110"
+            remote_user="liaotian123"
+            remote_file="/home/liaotian123/liaotian.txt"
+            password="siilaoYYDS"  # 替换为您的密码
+
+            clear
+            echo "肆佬留言板"
+            echo "------------------------"
+            # 显示已有的留言内容
+            sshpass -p "${password}" ssh -o StrictHostKeyChecking=no "${remote_user}@${remote_ip}" "cat '${remote_file}'"
+            echo ""
+            echo "------------------------"
+
+            # 判断是否要留言
+            read -p "是否要留言？(y/n): " leave_message
+
+            if [ "$leave_message" == "y" ] || [ "$leave_message" == "Y" ]; then
+                # 输入新的留言内容
+                read -p "输入你的昵称: " nicheng
+                read -p "输入你的聊天内容: " neirong
+
+                # 添加新留言到远程文件
+                sshpass -p "${password}" ssh -o StrictHostKeyChecking=no "${remote_user}@${remote_ip}" "echo -e '${nicheng}: ${neirong}' >> '${remote_file}'"
+                echo "已添加留言: "
+                echo "${nicheng}: ${neirong}"
+                echo ""
+            else
+                echo "您选择了不留言。"
+            fi
+
+            echo "留言板操作完成。"
+
+              ;;
+
           66)
 
               root_use
@@ -6457,6 +6626,7 @@ EOF
                   new_port=520
                   new_ssh_port
                   echo -e "[${lv}OK${bai}] 4/9. 设置SSH端口号为${huang}520${bai}"
+                  echo "------------------------------------------------"
                   echo -e "[${lv}OK${bai}] 5/9. 开放所有端口"
 
                   echo "------------------------------------------------"
