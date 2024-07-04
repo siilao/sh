@@ -1,6 +1,6 @@
 #!/bin/bash
 
-sh_v="1.9.9"
+sh_v="2.0.0"
 
 huang='\033[33m'    # 黄色    ${yellow}
 bai='\033[0m'       # 白色    ${white}
@@ -942,28 +942,41 @@ set_timedate() {
 
 
 
+
 linux_update() {
-
-    # Update system on Debian-based systems
-    if [ -f "/etc/debian_version" ]; then
-        apt update -y && DEBIAN_FRONTEND=noninteractive apt full-upgrade -y
-    fi
-
-    # Update system on Red Hat-based systems
-    if [ -f "/etc/redhat-release" ]; then
+    if command -v dnf &>/dev/null; then
+        dnf -y update
+    elif command -v yum &>/dev/null; then
         yum -y update
-    fi
-
-    # Update system on Alpine Linux
-    if [ -f "/etc/alpine-release" ]; then
+    elif command -v apt &>/dev/null; then
+        DEBIAN_FRONTEND=noninteractive apt update -y
+        DEBIAN_FRONTEND=noninteractive apt full-upgrade -y
+    elif command -v apk &>/dev/null; then
         apk update && apk upgrade
+    else
+        echo "未知的包管理器!"
+        return 1
     fi
-
 }
 
 
+
 linux_clean() {
-    clean_debian() {
+    if command -v dnf &>/dev/null; then
+        dnf autoremove -y
+        dnf clean all
+        journalctl --rotate
+        journalctl --vacuum-time=1s
+        journalctl --vacuum-size=50M
+        dnf remove $(dnf repoquery --installonly --latest-limit=-1 -q) -y
+    elif command -v yum &>/dev/null; then
+        yum autoremove -y
+        yum clean all
+        journalctl --rotate
+        journalctl --vacuum-time=1s
+        journalctl --vacuum-size=50M
+        yum remove $(rpm -q kernel | grep -v $(uname -r)) -y
+    elif command -v apt &>/dev/null; then
         apt autoremove --purge -y
         apt clean -y
         apt autoclean -y
@@ -972,38 +985,16 @@ linux_clean() {
         journalctl --vacuum-time=1s
         journalctl --vacuum-size=50M
         apt remove --purge $(dpkg -l | awk '/^ii linux-(image|headers)-[^ ]+/{print $2}' | grep -v $(uname -r | sed 's/-.*//') | xargs) -y
-    }
-
-    clean_redhat() {
-        yum autoremove -y
-        yum clean all
-        journalctl --rotate
-        journalctl --vacuum-time=1s
-        journalctl --vacuum-size=50M
-        yum remove $(rpm -q kernel | grep -v $(uname -r)) -y
-    }
-
-    clean_alpine() {
+    elif command -v apk &>/dev/null; then
         apk del --purge $(apk info --installed | awk '{print $1}' | grep -v $(apk info --available | awk '{print $1}'))
         apk autoremove
         apk cache clean
         rm -rf /var/log/*
         rm -rf /var/cache/apk/*
-
-    }
-
-    # Main script
-    if [ -f "/etc/debian_version" ]; then
-        # Debian-based systems
-        clean_debian
-    elif [ -f "/etc/redhat-release" ]; then
-        # Red Hat-based systems
-        clean_redhat
-    elif [ -f "/etc/alpine-release" ]; then
-        # Alpine Linux
-        clean_alpine
+    else
+        echo "未知的包管理器!"
+        return 1
     fi
-
 
 }
 
@@ -4993,7 +4984,7 @@ case $choice in
       echo "------------------------"
       echo "21. 本机host解析                       22. fail2banSSH防御程序"
       echo "23. 限流自动关机                       24. ROOT私钥登录模式"
-      echo "25. TG-bot系统监控预警"
+      echo "25. TG-bot系统监控预警                 26. 修复OoenSSH高危漏洞（岫源）"
       echo "------------------------"
       echo "66. 一条龙系统调优"
       echo "------------------------"
@@ -5404,24 +5395,84 @@ EOF
 
               ;;
           9)
-            root_use
+            clear
+            while true; do
+                echo -e "是否禁用ROOT账户"
+                echo "------------------------"
+                echo "1. 禁用ROOT账户创建新账户 ▶"
+                echo "2. 启用ROOT用户 ▶"
+                echo "------------------------"
+                echo "0. 返回上一级菜单"
+                echo "------------------------"
+                read -p "请输入你的选择: " sub_choice
 
-            # 提示用户输入新用户名
-            read -p "请输入新用户名: " new_username
+                case $sub_choice in
+                    1)
+                        root_use
 
-            # 创建新用户并设置密码
-            useradd -m -s /bin/bash "$new_username"
-            passwd "$new_username"
+                        # 提示用户是否需要创建新用户
+                        echo "请确认已有sudo权限的用户"
+                        # 显示所有用户、用户权限、用户组和是否在sudoers中
+                        echo "用户列表"
+                        echo "----------------------------------------------------------------------------"
+                        printf "%-24s %-34s %-20s %-10s\n" "用户名" "用户权限" "用户组" "sudo权限"
+                        while IFS=: read -r username _ userid groupid _ _ homedir shell; do
+                            groups=$(groups "$username" | cut -d : -f 2)
+                            sudo_status=$(sudo -n -lU "$username" 2>/dev/null | grep -q '(ALL : ALL)' && echo "Yes" || echo "No")
+                            printf "%-20s %-30s %-20s %-10s\n" "$username" "$homedir" "$groups" "$sudo_status"
+                        done < /etc/passwd
+                        read -p "需要创建新用户吗？(y/n): " answer
 
-            # 赋予新用户sudo权限
-            echo "$new_username ALL=(ALL:ALL) ALL" | sudo tee -a /etc/sudoers
+                        if [ "$answer" = "y" ]; then
+                            # 提示用户输入新用户名
+                            read -p "请输入新用户名: " new_username
 
-            # 禁用ROOT用户登录
-            passwd -l root
+                            # 创建新用户并设置密码
+                            useradd -m -s /bin/bash "$new_username"
+                            passwd "$new_username"
 
-            echo "操作已完成。"
+                            # 赋予新用户sudo权限
+                            echo "$new_username ALL=(ALL:ALL) ALL" | sudo tee -a /etc/sudoers
+
+                            echo "新用户 $new_username 创建并设置密码完成。"
+                        else
+                            echo "已跳过创建新用户的操作。"
+                        fi
+
+                        # 禁用ROOT用户登录
+                        passwd -l root
+
+                        echo "操作已完成。"
+                        ;;
+                    2)
+                        root_use
+
+                        # 启用ROOT用户登录
+                        passwd -u root
+
+                        # 设置ROOT密码
+                        echo "设置ROOT密码"
+                        passwd root
+
+                        echo "操作已完成。"
+                        ;;
+
+
+                    0)
+                        # 返回上一级菜单菜单
+                        break  # 使用 break 来跳出当前循环，返回上一级菜单
+                        ;;
+                    00)
+                        # 返回主菜单
+                        siilao
+                        ;;
+                    *)
+                        echo "无效的输入!"
+                        ;;
+                esac
+                break_end
+            done
             ;;
-
 
           10)
             root_use
@@ -6546,8 +6597,14 @@ EOF
 
               ;;
 
-
-
+          26)
+              root_use
+              cd ~
+              curl -sS -O https://raw.githubusercontent.com/kejilion/sh/main/upgrade_openssh9.8p1.sh
+              chmod +x ~/upgrade_openssh9.8p1.sh
+              ~/upgrade_openssh9.8p1.sh
+              rm -f ~/upgrade_openssh9.8p1.sh
+              ;;
 
           31)
             clear
