@@ -1,6 +1,6 @@
 #!/bin/bash
 
-sh_v="2.0.9.1"
+sh_v="2.1.0"
 
 huang='\033[33m'    # 黄色    ${yellow}
 bai='\033[0m'       # 白色    ${white}
@@ -2853,15 +2853,15 @@ case $choice in
         echo -e "       Sing-box多合一             Argo-tunnel"
         echo "---------------------------------------------------------"
         echo -e " 41. F佬Sing-box一键脚本        45. F佬ArgoX一键脚本"
-        echo -e " 42. 小绵羊Sing-box三合一       46. Suoha一键Argo脚本"
+        echo -e " 42. 老王Sing-box四合一         46. Suoha一键Argo脚本"
         echo -e " 43. 勇哥Sing-box四合一         47. WL一键Argo哪吒脚本"
-        echo -e " 44. V2ray-agent八合一          48. 一键老王Nodejs-Argo节点+哪吒+订阅"
+        echo -e " 44. 233boy.sing-box一键脚本    48. 老王nodejs-argo节点+哪吒+订阅"
         echo "---------------------------------------------------------"
         echo -e "        单协议                    XRAY面板及其他"
         echo "---------------------------------------------------------"
-        echo -e " 49. M佬Hysteria2一键脚本       53.新版Xray面板一键脚本"
-        echo -e " 50. M佬Juicity一键脚本         54.伊朗版Xray面板一键脚本"
-        echo -e " 51. M佬Tuic-v5一键脚本         55.OpenVPN一键安装脚本"
+        echo -e " 49. 老王Hysteria2一键脚本       53.新版Xray面板一键脚本"
+        echo -e " 50. 老王Juicity一键脚本         54.伊朗版Xray面板一键脚本"
+        echo -e " 51. 老王Tuic-v5一键脚本         55.OpenVPN一键安装脚本"
         echo -e " 52. Brutal-Reality一键脚本     56.一键搭建TG代理"
         echo -e " 57. 老王Reality一键脚本        58.sing-box面板(sui) ▶"
         echo "---------------------------------------------------------"
@@ -2919,7 +2919,7 @@ case $choice in
             44)
                 clear
                     install wget
-                    wget -N --no-check-certificate "https://raw.githubusercontent.com/mack-a/v2ray-agent/master/install.sh" && chmod 777 install.sh && bash install.sh
+                    bash <(wget -qO- -o- https://github.com/233boy/sing-box/raw/main/install.sh)
                     break_end
                 ;;
             45)
@@ -3029,6 +3029,7 @@ case $choice in
                                 else
                                     HY2_PORT=$port bash -c "$(curl -L https://raw.githubusercontent.com/eooce/scripts/master/Hysteria2.sh)"
                                 fi
+                                sleep 1
                                 break_end
 
                                 ;;
@@ -3054,7 +3055,7 @@ case $choice in
                                     [[ -z $new_port ]] && new_port=$(shuf -i 2000-65000 -n 1)
                                     until [[ -z $(netstat -tuln | grep -w udp | awk '{print $4}' | sed 's/.*://g' | grep -w "$new_port") ]]; do
                                         if [[ -n $(netstat -tuln | grep -w udp | awk '{print $4}' | sed 's/.*://g' | grep -w "$new_port") ]]; then
-                                            echo -e "${hong}${new_port}端口已经被其他程序占用，请更换端口重试${bai}"
+                                            echo -e "${red}${new_port}端口已经被其他程序占用，请更换端口重试${re}"
                                             read -p $'\033[1;35m设置Hysteria2端口[1-65535]（回车跳过将使用随机端口）：\033[0m' new_port
                                             [[ -z $new_port ]] && new_port=$(shuf -i 2000-65000 -n 1)
                                         fi
@@ -3069,6 +3070,7 @@ case $choice in
                                         systemctl restart hysteria-server.service
                                     fi
                                     echo -e "${lv}Hysteria2端口已更换成$new_port,请手动更改客户端配置!${bai}"
+                                    sleep 1
                                     break_end
                                 ;;
 
@@ -3084,7 +3086,7 @@ case $choice in
                     ;;
             50)
                 clear
-                    install wget && wget -N https://raw.githubusercontent.com/Misaka-blog/juicity-script/main/juicity.sh && bash juicity.sh
+                    bash <(curl -Ls https://raw.githubusercontent.com/eooce/scripts/master/juicity.sh)
                     break_end
                 ;;
             51)
@@ -3095,21 +3097,22 @@ case $choice in
             52)
                 clear
                     echo ""
-                    echo -e "${hong}安装Tcp-Brutal-Reality需要内核高于5.8，不符合请手动升级5.8内核以上再安装${bai}"
+                    echo -e "${purple}安装Tcp-Brutal-Reality需要内核高于5.8，不符合请手动升级5.8内核以上再安装${re}"
 
                     current_kernel_version=$(uname -r | cut -d'-' -f1 | awk -F'.' '{print $1 * 100 + $2}')
                     target_kernel_version=508
 
                     # 比较内核版本
                     if [ "$current_kernel_version" -lt "$target_kernel_version" ]; then
-                        echo -e "${hong}当前系统内核版本小于 $target_kernel_version，请手动升级内核后重试，正在退出...${bai}"
+                        echo -e "${red}当前系统内核版本小于 $target_kernel_version，请手动升级内核后重试，正在退出...${re}"
                         sleep 2
                         main_menu
                     else
                         echo ""
-                        echo -e "${lv}当前系统内核版本 $current_kernel_version，符合安装要求${bai}"
-                        break_end
+                        echo -e "${green}当前系统内核版本 $current_kernel_version，符合安装要求${re}"
+                        sleep 1
                         bash <(curl -fsSL https://github.com/vveg26/sing-box-reality-hysteria2/raw/main/tcp-brutal-reality.sh)
+                        sleep 1
                         break_end
                     fi
 
@@ -3136,6 +3139,37 @@ case $choice in
                     break_end
                 ;;
             57)
+                while true; do
+                clear
+                  echo "--------------"
+                  echo -e "${lv}1.安装mtproxy${bai}"
+                  echo -e "${hong}2.卸载mtproxy${bai}"
+                  echo -e "${lan}0. 返回上一级菜单${bai}"
+                  echo "--------------"
+                  read -p $'\033[1;91m请输入你的选择: \033[0m' sub_choice
+                    case $sub_choice in
+                        1)
+                        clear
+                            docker run --name nginx-mtproxy -d  -p 4322:80 -p 8443:443 -e ip_white_list="OFF" ellermister/nginx-mtproxy:latest
+                            docker logs nginx-mtproxy
+                            break_end
+                         ;;
+                        2)
+                        clear
+                            docker stop nginx-mtproxy && docker rm nginx-mtproxy
+                            echo -e "\e[1;32mReality已卸载\033[0m"
+                            break_end
+                         ;;
+                        0)
+                        break
+                        ;;
+                        *)
+                        echo -e "${hong}无效的输入!${bai}"
+                        ;;
+                    esac
+                done
+                ;;
+            58)
                 while true; do
                 clear
                   echo "--------------"
@@ -3227,7 +3261,7 @@ case $choice in
                 done
                 ;;
 
-            58)
+            59)
                 while true; do
                 clear
                   echo -e "${lan}▶ Sui面板${bai}"
