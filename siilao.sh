@@ -7503,7 +7503,7 @@ done
 
 if [ "$#" -eq 0 ]; then
     # 如果没有参数，运行交互式逻辑
-    kejilion_sh
+    siilao_sh
 else
     # 如果有参数，执行相应函数
     case $1 in
