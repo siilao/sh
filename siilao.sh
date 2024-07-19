@@ -3791,7 +3791,7 @@ linux_ldnmp() {
       cd /home/web/html
       mkdir $yuming
       cd $yuming
-      wget -O latest.zip https://github.com/siilao/sh/Website_source_code/raw/main/Discuz_X3.5_SC_UTF8_20240520.zip
+      wget -O latest.zip https://github.com/siilao/sh/blob/main/file/Discuz_X3.5_SC_UTF8_20240520.zip
       unzip latest.zip
       rm latest.zip
 
@@ -3858,10 +3858,10 @@ linux_ldnmp() {
       cd $yuming
       # wget https://github.com/magicblack/maccms_down/raw/master/maccms10.zip && unzip maccms10.zip && rm maccms10.zip
       wget https://github.com/magicblack/maccms_down/raw/master/maccms10.zip && unzip maccms10.zip && mv maccms10-*/* . && rm -r maccms10-* && rm maccms10.zip
-      cd /home/web/html/$yuming/template/ && wget https://github.com/siilao/Website_source_code/raw/main/DYXS2.zip && unzip DYXS2.zip && rm /home/web/html/$yuming/template/DYXS2.zip
+      cd /home/web/html/$yuming/template/ && wget https://github.com/siilao/sh/blob/main/file/DYXS2.zip && unzip DYXS2.zip && rm /home/web/html/$yuming/template/DYXS2.zip
       cp /home/web/html/$yuming/template/DYXS2/asset/admin/Dyxs2.php /home/web/html/$yuming/application/admin/controller
       cp /home/web/html/$yuming/template/DYXS2/asset/admin/dycms.html /home/web/html/$yuming/application/admin/view/system
-      mv /home/web/html/$yuming/admin.php /home/web/html/$yuming/vip.php && wget -O /home/web/html/$yuming/application/extra/maccms.php https://raw.githubusercontent.com/siilao/Website_source_code/main/maccms.php
+      mv /home/web/html/$yuming/admin.php /home/web/html/$yuming/vip.php && wget -O /home/web/html/$yuming/application/extra/maccms.php https://github.com/siilao/sh/blob/main/file/maccms.php
 
       restart_ldnmp
 
