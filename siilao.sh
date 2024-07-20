@@ -3216,7 +3216,7 @@ linux_test() {
 
 
 
-linux_outside_world
+linux_outside_world() {
 
       while true; do
         clear
