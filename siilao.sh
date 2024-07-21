@@ -1,6 +1,6 @@
 #!/bin/bash
 
-sh_v="1=2.1.1"
+sh_v="2.1.1"
 
 huang='\033[33m'
 bai='\033[0m'
@@ -32,7 +32,7 @@ CheckFirstRun_true
 
 
 
-ENABLE_STATS="true"
+ENABLE_STATS="false"
 
 send_stats() {
 
@@ -8103,6 +8103,9 @@ else
             ;;
         bbr3|bbrv3)
             bbrv3
+            ;;
+        daili|代理)
+            linux_outside_world
             ;;
         status|状态)
             shift
