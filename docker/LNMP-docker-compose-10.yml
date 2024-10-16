@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   nginx:
@@ -15,17 +14,19 @@ services:
       - ./certs:/etc/nginx/certs
       - ./html:/var/www/html
       - ./log/nginx:/var/log/nginx
+    tmpfs:
+      - /var/cache/nginx:rw,noexec,nosuid,size=512m
 
 
   php:
-    image: php:fpm-alpine
+    image: kjlion/php:fpm-alpine
     container_name: php
     restart: always
     volumes:
       - ./html:/var/www/html
 
   php74:
-    image: php:7.4-fpm-alpine
+    image: kjlion/php:7.4-fpm-alpine
     container_name: php74
     restart: always
     volumes:
