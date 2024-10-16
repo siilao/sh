@@ -1,9 +1,8 @@
 #!/bin/bash
-sh_v="2.4.1"
+sh_v="2.4.2"
 
-bai='\033[0m'
-hui='\e[37m'
 
+gl_hui='\e[37m'
 gl_hong='\033[31m'
 gl_lv='\033[32m'
 gl_huang='\033[33m'
@@ -18,7 +17,7 @@ country="default"
 cn_yuan() {
 if [ "$country" = "CN" ]; then
 	zhushi=0
-	gh_proxy="https://gh.kejilion.pro/"
+	gh_proxy="https://github.trii.cn/"
 else
 	zhushi=1  # 0 表示执行，1 表示不执行
 	gh_proxy=""
@@ -43,8 +42,8 @@ permission_granted="false"
 
 CheckFirstRun_true() {
   if grep -q '^permission_granted="true"' /usr/local/bin/s > /dev/null 2>&1; then
-   sed -i 's/^permission_granted="false"/permission_granted="true"/' ./siilao.sh
-   sed -i 's/^permission_granted="false"/permission_granted="true"/' /usr/local/bin/s
+    sed -i 's/^permission_granted="false"/permission_granted="true"/' ./siilao.sh
+    sed -i 's/^permission_granted="false"/permission_granted="true"/' /usr/local/bin/s
   fi
 }
 
@@ -69,7 +68,7 @@ send_stats() {
 	country=$(curl -s ipinfo.io/country)
 	os_info=$(grep PRETTY_NAME /etc/os-release | cut -d '=' -f2 | tr -d '"')
 	cpu_arch=$(uname -m)
-	curl -s -X POST "https://api.kejilion.pro/api/log" \
+	curl -s -X POST "" \
 		 -H "Content-Type: application/json" \
 		 -d "{\"action\":\"$1\",\"timestamp\":\"$(date -u '+%Y-%m-%d %H:%M:%S')\",\"country\":\"$country\",\"os_info\":\"$os_info\",\"cpu_arch\":\"$cpu_arch\",\"version\":\"$sh_v\"}" &>/dev/null &
 }
@@ -82,7 +81,7 @@ yinsiyuanquan1() {
 if grep -q '^ENABLE_STATS="true"' /usr/local/bin/s > /dev/null 2>&1; then
 	status_message="${gl_lv}正在采集数据${gl_bai}"
 elif grep -q '^ENABLE_STATS="false"' /usr/local/bin/s > /dev/null 2>&1; then
-	status_message="${hui}采集已关闭${gl_bai}"
+	status_message="${gl_hui}采集已关闭${gl_bai}"
 else
 	status_message="无法确定的状态"
 fi
@@ -117,7 +116,7 @@ UserLicenseAgreement() {
 	clear
 	echo -e "${gl_slao}欢迎使用科技lion脚本工具箱${gl_bai}"
 	echo "首次使用脚本，请先阅读并同意用户许可协议。"
-	echo "用户许可协议: https://blog.kejilion.pro/user-license-agreement/"
+	echo "用户许可协议: 暂无"
 	echo -e "----------------------"
 	read -r -p "是否同意以上条款？(y/n): " user_input
 
@@ -192,7 +191,6 @@ install() {
 
 
 install_dependency() {
-	  clear
 	  install wget socat unzip tar
 }
 
@@ -319,6 +317,7 @@ check_port() {
 	PORT=80
 
 	# 检查端口占用情况
+	install iproute2
 	result=$(ss -tulpn | grep ":\b$PORT\b")
 
 	# 判断结果并输出相应信息
@@ -340,7 +339,7 @@ country=$(curl -s ipinfo.io/country)
 if [ "$country" = "CN" ]; then
 	cat > /etc/docker/daemon.json << EOF
 {
-  "registry-mirrors": ["https://docker.trii.cn"]
+  "registry-mirrors": ["https://hub.trii.cn"]
 }
 EOF
 
@@ -875,11 +874,11 @@ install_ldnmp() {
 
 	  # 定义要执行的命令
 	  commands=(
-		  "docker exec nginx chmod -R 777 /var/www/html > /dev/null 2>&1"
+		  "docker exec nginx chown -R nginx:nginx /var/www/html > /dev/null 2>&1"
 		  "docker exec nginx mkdir -p /var/cache/nginx/proxy > /dev/null 2>&1"
-		  "docker exec nginx chmod 777 /var/cache/nginx/proxy > /dev/null 2>&1"
+		  "docker exec nginx chmod -R nginx:nginx /var/cache/nginx/proxy > /dev/null 2>&1"
 		  "docker exec nginx mkdir -p /var/cache/nginx/fastcgi > /dev/null 2>&1"
-		  "docker exec nginx chmod 777 /var/cache/nginx/fastcgi > /dev/null 2>&1"
+		  "docker exec nginx chmod -R nginx:nginx /var/cache/nginx/fastcgi > /dev/null 2>&1"
 		  "docker restart nginx > /dev/null 2>&1"
 
 		  "run_command docker exec php sed -i \"s/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g\" /etc/apk/repositories > /dev/null 2>&1"
@@ -936,7 +935,7 @@ install_ldnmp() {
 		  "docker exec php sh -c 'echo \"max_input_vars=3000\" > /usr/local/etc/php/conf.d/max_input_vars.ini' > /dev/null 2>&1"
 
 		  # php重启
-		  "docker exec php chmod -R 777 /var/www/html"
+		  "docker exec php chown -R www-data:www-data /var/www/html"
 		  "docker restart php > /dev/null 2>&1"
 
 		  # php7.4安装扩展
@@ -960,7 +959,7 @@ install_ldnmp() {
 		  "docker exec php74 sh -c 'echo \"max_input_vars=3000\" > /usr/local/etc/php/conf.d/max_input_vars.ini' > /dev/null 2>&1"
 
 		  # php7.4重启
-		  "docker exec php74 chmod -R 777 /var/www/html"
+		  "docker exec php74 chown -R www-data:www-data /var/www/html"
 		  "docker restart php74 > /dev/null 2>&1"
 
 		  # redis调优
@@ -1027,26 +1026,30 @@ install_certbot() {
 
 
 install_ssltls() {
+	  repeat_add_yuming
 	  docker stop nginx > /dev/null 2>&1
 	  iptables_open > /dev/null 2>&1
 	  cd ~
+	  file_path="/etc/letsencrypt/live/$yuming/fullchain.pem"
+	  if [ ! -f "$file_path" ]; then
+		echo -e "${gl_huang}正在申请域名证书...${gl_bai}"
+		certbot_version=$(certbot --version 2>&1 | grep -oP "\d+\.\d+\.\d+")
 
-	  yes | certbot delete --cert-name $yuming > /dev/null 2>&1
+		version_ge() {
+	  	  [ "$(printf '%s\n' "$1" "$2" | sort -V | head -n1)" != "$1" ]
+		}
 
-	  certbot_version=$(certbot --version 2>&1 | grep -oP "\d+\.\d+\.\d+")
+		if version_ge "$certbot_version" "1.17.0"; then
+	  	  certbot certonly --standalone -d $yuming --email your@email.com --agree-tos --no-eff-email --force-renewal --key-type ecdsa
+		else
+	  	  certbot certonly --standalone -d $yuming --email your@email.com --agree-tos --no-eff-email --force-renewal
+		fi
 
-	  version_ge() {
-		  [ "$(printf '%s\n' "$1" "$2" | sort -V | head -n1)" != "$1" ]
-	  }
-
-	  if version_ge "$certbot_version" "1.17.0"; then
-		  certbot certonly --standalone -d $yuming --email your@email.com --agree-tos --no-eff-email --force-renewal --key-type ecdsa
-	  else
-		  certbot certonly --standalone -d $yuming --email your@email.com --agree-tos --no-eff-email --force-renewal
 	  fi
 
 	  cp /etc/letsencrypt/live/$yuming/fullchain.pem /home/web/certs/${yuming}_cert.pem > /dev/null 2>&1
 	  cp /etc/letsencrypt/live/$yuming/privkey.pem /home/web/certs/${yuming}_key.pem > /dev/null 2>&1
+
 	  docker start nginx > /dev/null 2>&1
 }
 
@@ -1071,8 +1074,13 @@ install_ssltls_text() {
 
 add_ssl() {
 
-add_yuming
+yuming="${1:-}"
+if [ -z "$yuming" ]; then
+	add_yuming
+fi
+
 install_certbot
+yes | certbot delete --cert-name $yuming > /dev/null 2>&1
 install_ssltls
 certs_status
 install_ssltls_text
@@ -1144,9 +1152,7 @@ fi
 
 if [ -e /home/web/conf.d/$yuming.conf ]; then
   send_stats "域名重复使用"
-  echo -e "${gl_huang}提示: ${gl_bai}当前 ${yuming} 域名已被使用，请前往31站点管理，删除站点，再部署 ${webname} ！"
-  break_end
-  linux_ldnmp
+  web_del "${yuming}" > /dev/null 2>&1
 fi
 
 }
@@ -1156,7 +1162,6 @@ add_yuming() {
 	  ip_address
 	  echo -e "先将域名解析到本机IP: ${gl_huang}$ipv4_address  $ipv6_address${gl_bai}"
 	  read -e -p "请输入你解析的域名: " yuming
-	  repeat_add_yuming
 
 }
 
@@ -1181,12 +1186,10 @@ reverse_proxy() {
 }
 
 restart_ldnmp() {
-	  docker exec nginx chmod -R 777 /var/www/html
-	  docker exec php chmod -R 777 /var/www/html
-	  docker exec php74 chmod -R 777 /var/www/html
-
+	  docker exec nginx chown -R nginx:nginx /var/www/html
+	  docker exec php chown -R www-data:www-data /var/www/html
+	  docker exec php74 chown -R www-data:www-data /var/www/html
 	  cd /home/web && docker compose restart
-
 }
 
 nginx_upgrade() {
@@ -1194,19 +1197,155 @@ nginx_upgrade() {
   ldnmp_pods="nginx"
   cd /home/web/
   docker rm -f $ldnmp_pods > /dev/null 2>&1
-  docker images --filter=reference="$ldnmp_pods*" -q | xargs docker rmi > /dev/null 2>&1
+  docker images --filter=reference="kjlion/${ldnmp_pods}*" -q | xargs docker rmi > /dev/null 2>&1
+  docker images --filter=reference="${ldnmp_pods}*" -q | xargs docker rmi > /dev/null 2>&1
   docker compose up -d --force-recreate $ldnmp_pods
-  docker exec $ldnmp_pods chmod -R 777 /var/www/html
+  docker exec nginx chown -R nginx:nginx /var/www/html
   docker exec nginx mkdir -p /var/cache/nginx/proxy
-  docker exec nginx chmod 777 /var/cache/nginx/proxy
+  docker exec nginx chown -R nginx:nginx /var/cache/nginx/proxy
   docker exec nginx mkdir -p /var/cache/nginx/fastcgi
-  docker exec nginx chmod 777 /var/cache/nginx/fastcgi
+  docker exec nginx chown -R nginx:nginx /var/cache/nginx/fastcgi
   docker restart $ldnmp_pods > /dev/null 2>&1
 
 }
 
+phpmyadmin_upgrade() {
+  local ldnmp_pods="phpmyadmin"
+  local docker_port=8877
+  local dbuse=$(grep -oP 'MYSQL_USER:\s*\K.*' /home/web/docker-compose.yml | tr -d '[:space:]')
+  local dbusepasswd=$(grep -oP 'MYSQL_PASSWORD:\s*\K.*' /home/web/docker-compose.yml | tr -d '[:space:]')
+
+  cd /home/web/
+  docker rm -f $ldnmp_pods > /dev/null 2>&1
+  docker images --filter=reference="$ldnmp_pods*" -q | xargs docker rmi > /dev/null 2>&1
+  curl -sS -O https://raw.githubusercontent.com/siilao/sh/refs/heads/main/docker/docker-compose.phpmyadmin.yml
+  docker compose -f docker-compose.phpmyadmin.yml up -d
+  clear
+  ip_address
+  has_ipv4_has_ipv6
+  check_docker_app_ip
+  echo "登录信息: "
+  echo "用户名: $dbuse"
+  echo "密码: $dbusepasswd"
+  echo
+  send_stats "启动$ldnmp_pods"
+}
 
 
+cf_purge_cache() {
+  local CONFIG_FILE="/home/web/config/cf-purge-cache.txt"
+  local API_TOKEN
+  local EMAIL
+  local ZONE_IDS
+
+  # 检查配置文件是否存在
+  if [ -f "$CONFIG_FILE" ]; then
+	# 从配置文件读取 API_TOKEN 和 zone_id
+	read API_TOKEN EMAIL ZONE_IDS < "$CONFIG_FILE"
+	# 将 ZONE_IDS 转换为数组
+	ZONE_IDS=($ZONE_IDS)
+  else
+	# 提示用户是否清理缓存
+	read -p "需要清理 Cloudflare 的缓存吗？（y/n）: " answer
+	if [[ "$answer" == "y" ]]; then
+	  echo "CF信息保存在$CONFIG_FILE，可以后期修改CF信息"
+	  read -p "请输入你的 API_TOKEN: " API_TOKEN
+	  read -p "请输入你的CF用户名: " EMAIL
+	  read -p "请输入 zone_id（多个用空格分隔）: " -a ZONE_IDS
+
+	  mkdir -p /home/web/config/
+	  echo "$API_TOKEN $EMAIL ${ZONE_IDS[*]}" > "$CONFIG_FILE"
+	fi
+  fi
+
+  # 循环遍历每个 zone_id 并执行清除缓存命令
+  for ZONE_ID in "${ZONE_IDS[@]}"; do
+	echo "正在清除缓存 for zone_id: $ZONE_ID"
+	curl -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/purge_cache" \
+	-H "X-Auth-Email: $EMAIL" \
+	-H "X-Auth-Key: $API_TOKEN" \
+	-H "Content-Type: application/json" \
+	--data '{"purge_everything":true}'
+  done
+
+  echo "缓存清除请求已发送完毕。"
+}
+
+
+
+# 定义缓存预热函数
+preheat_cache() {
+	local url_file="/home/web/config/urls.txt"
+
+	# 检查文件是否存在
+	if [[ ! -f "$url_file" ]]; then
+		return
+	fi
+
+	# 从文件读取 URL 列表
+	urls=()
+	while IFS= read -r url; do
+		urls+=("$url")
+	done < "$url_file"
+
+	# 遍历每个 URL 并进行缓存预热
+	for url in "${urls[@]}"; do
+		echo "预热缓存: $url"
+		curl -s -o /dev/null \
+			-H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" \
+			-H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
+			"$url"
+	done
+
+	echo "缓存预热完成！"
+}
+
+
+
+web_cache() {
+  send_stats "清理站点缓存"
+  # docker exec -it nginx rm -rf /var/cache/nginx
+  cf_purge_cache
+  docker exec php php -r 'opcache_reset();'
+  docker exec php74 php -r 'opcache_reset();'
+  docker restart nginx php php74 redis
+  docker exec redis redis-cli FLUSHALL
+  docker exec -it redis redis-cli CONFIG SET maxmemory 512mb
+  docker exec -it redis redis-cli CONFIG SET maxmemory-policy allkeys-lru
+  preheat_cache
+}
+
+
+
+web_del() {
+
+	send_stats "删除站点数据"
+	yuming_list="${1:-}"
+	if [ -z "$yuming_list" ]; then
+		read -e -p "删除站点数据，请输入你的域名（多个域名用空格隔开）: " yuming_list
+		if [[ -z "$yuming_list" ]]; then
+			return
+		fi
+	fi
+
+	for yuming in $yuming_list; do
+		echo "正在删除域名: $yuming"
+		rm -r /home/web/html/$yuming
+		rm /home/web/conf.d/$yuming.conf
+		rm /home/web/certs/${yuming}_key.pem
+		rm /home/web/certs/${yuming}_cert.pem
+
+		# 将域名转换为数据库名
+		dbname=$(echo "$yuming" | sed -e 's/[^A-Za-z0-9]/_/g')
+		dbrootpasswd=$(grep -oP 'MYSQL_ROOT_PASSWORD:\s*\K.*' /home/web/docker-compose.yml | tr -d '[:space:]')
+
+		# 删除数据库前检查是否存在，避免报错
+		echo "正在删除数据库: $dbname"
+		docker exec mysql mysql -u root -p"$dbrootpasswd" -e "DROP DATABASE ${dbname};" > /dev/null 2>&1
+	done
+
+	docker restart nginx
+}
 
 
 
@@ -1235,7 +1374,7 @@ check_docker_app() {
 if docker inspect "$docker_name" &>/dev/null; then
 	check_docker="${gl_lv}已安装${gl_bai}"
 else
-	check_docker="${hui}未安装${gl_bai}"
+	check_docker="${gl_hui}未安装${gl_bai}"
 fi
 
 }
@@ -1479,6 +1618,43 @@ ldnmp_install_status_one() {
 }
 
 
+ldnmp_install_all() {
+send_stats "安装LDNMP环境"
+root_use
+ldnmp_install_status_one
+check_port
+echo -e "${gl_huang}LDNMP环境未安装，开始安装LDNMP环境...${gl_bai}"
+sleep 3
+install_dependency
+install_docker
+install_certbot
+install_ldnmp_conf
+install_ldnmp
+
+}
+
+
+nginx_install_all() {
+send_stats "安装nginx环境"
+root_use
+ldnmp_install_status_one
+check_port
+echo -e "${gl_huang}nginx未安装，开始安装nginx环境...${gl_bai}"
+sleep 3
+install_dependency
+install_docker
+install_certbot
+install_ldnmp_conf
+nginx_upgrade
+clear
+nginx_version=$(docker exec nginx nginx -v 2>&1)
+nginx_version=$(echo "$nginx_version" | grep -oP "nginx/\K[0-9]+\.[0-9]+\.[0-9]+")
+echo "nginx已安装完成"
+echo -e "当前版本: ${gl_huang}v$nginx_version${gl_bai}"
+echo ""
+
+}
+
 
 
 
@@ -1488,10 +1664,10 @@ ldnmp_install_status() {
 	echo "LDNMP环境已安装，开始部署 $webname"
    else
 	send_stats "请先安装LDNMP环境"
-	echo -e "${gl_huang}提示: ${gl_bai}LDNMP环境未安装，请先安装LDNMP环境，再部署网站"
+	ldnmp_install_all
 	break_end
-	linux_ldnmp
-
+	clear
+	echo "LDNMP环境已安装，开始部署 $webname"
    fi
 
 }
@@ -1503,13 +1679,15 @@ nginx_install_status() {
 	echo "nginx环境已安装，开始部署 $webname"
    else
 	send_stats "请先安装nginx环境"
-	echo -e "${gl_huang}提示: ${gl_bai}nginx未安装，请先安装nginx环境，再部署网站"
+	nginx_install_all
 	break_end
-	linux_ldnmp
-
+	clear
+	echo "nginx环境已安装，开始部署 $webname"
    fi
 
 }
+
+
 
 
 ldnmp_web_on() {
@@ -1530,8 +1708,258 @@ nginx_web_on() {
 
 
 
+ldnmp_wp() {
+  clear
+  # wordpress
+  webname="WordPress"
+  yuming="${1:-}"
+  send_stats "安装$webname"
+  ldnmp_install_status
+  if [ -z "$yuming" ]; then
+	add_yuming
+  fi
+  install_ssltls
+  certs_status
+  add_db
+  wget -O /home/web/conf.d/$yuming.conf ${gh_proxy}https://raw.githubusercontent.com/siilao/sh/refs/heads/main/nginx/wordpress.com.conf
+  sed -i "s/yuming.com/$yuming/g" /home/web/conf.d/$yuming.conf
+  cd /home/web/html
+  mkdir $yuming
+  cd $yuming
+  wget -O latest.zip https://cn.wordpress.org/latest-zh_CN.zip
+  # wget -O latest.zip https://wordpress.org/latest.zip
+  unzip latest.zip
+  rm latest.zip
+  echo "define('FS_METHOD', 'direct'); define('WP_REDIS_HOST', 'redis'); define('WP_REDIS_PORT', '6379');" >> /home/web/html/$yuming/wordpress/wp-config-sample.php
+  sed -i "s|database_name_here|$dbname|g" /home/web/html/$yuming/wordpress/wp-config-sample.php
+  sed -i "s|username_here|$dbuse|g" /home/web/html/$yuming/wordpress/wp-config-sample.php
+  sed -i "s|password_here|$dbusepasswd|g" /home/web/html/$yuming/wordpress/wp-config-sample.php
+  sed -i "s|localhost|mysql|g" /home/web/html/$yuming/wordpress/wp-config-sample.php
+  cp /home/web/html/$yuming/wordpress/wp-config-sample.php /home/web/html/$yuming/wordpress/wp-config.php
+
+  restart_ldnmp
+  nginx_web_on
+#   echo "数据库名: $dbname"
+#   echo "用户名: $dbuse"
+#   echo "密码: $dbusepasswd"
+#   echo "数据库地址: mysql"
+#   echo "表前缀: wp_"
+
+}
 
 
+ldnmp_Proxy() {
+	clear
+	webname="反向代理-IP+端口"
+	yuming="${1:-}"
+	reverseproxy="${2:-}"
+	port="${3:-}"
+
+	send_stats "安装$webname"
+	nginx_install_status
+
+	if [ -z "$yuming" ]; then
+		add_yuming
+	fi
+
+	if [ -z "$reverseproxy" ]; then
+		read -e -p "请输入你的反代IP: " reverseproxy
+	fi
+
+	if [ -z "$port" ]; then
+		read -e -p "请输入你的反代端口: " port
+	fi
+
+	install_ssltls
+	certs_status
+	wget -O /home/web/conf.d/$yuming.conf ${gh_proxy}https://raw.githubusercontent.com/siilao/sh/refs/heads/main/nginx/reverse-proxy.conf
+	sed -i "s/yuming.com/$yuming/g" /home/web/conf.d/$yuming.conf
+	sed -i "s/0.0.0.0/$reverseproxy/g" /home/web/conf.d/$yuming.conf
+	sed -i "s/0000/$port/g" /home/web/conf.d/$yuming.conf
+	docker restart nginx
+	nginx_web_on
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ldnmp_web_status() {
+	root_use
+	while true; do
+		clear
+		send_stats "LDNMP站点管理"
+		echo "LDNMP环境"
+		echo "------------------------"
+		ldnmp_v
+
+		# ls -t /home/web/conf.d | sed 's/\.[^.]*$//'
+		echo "站点信息                      证书到期时间"
+		echo "------------------------"
+		for cert_file in /home/web/certs/*_cert.pem; do
+		  domain=$(basename "$cert_file" | sed 's/_cert.pem//')
+		  if [ -n "$domain" ]; then
+			expire_date=$(openssl x509 -noout -enddate -in "$cert_file" | awk -F'=' '{print $2}')
+			formatted_date=$(date -d "$expire_date" '+%Y-%m-%d')
+			printf "%-30s%s\n" "$domain" "$formatted_date"
+		  fi
+		done
+
+		echo "------------------------"
+		echo ""
+		echo "数据库信息"
+		echo "------------------------"
+		dbrootpasswd=$(grep -oP 'MYSQL_ROOT_PASSWORD:\s*\K.*' /home/web/docker-compose.yml | tr -d '[:space:]')
+		docker exec mysql mysql -u root -p"$dbrootpasswd" -e "SHOW DATABASES;" 2> /dev/null | grep -Ev "Database|information_schema|mysql|performance_schema|sys"
+
+		echo "------------------------"
+		echo ""
+		echo "站点目录"
+		echo "------------------------"
+		echo -e "数据 ${gl_hui}/home/web/html${gl_bai}     证书 ${gl_hui}/home/web/certs${gl_bai}     配置 ${gl_hui}/home/web/conf.d${gl_bai}"
+		echo "------------------------"
+		echo ""
+		echo "操作"
+		echo "------------------------"
+		echo "1.  申请/更新域名证书               2.  更换站点域名"
+		echo "3.  清理站点缓存                    4.  查看站点分析报告"
+		echo "5.  查看访问日志                    6.  查看错误日志"
+		echo "7.  编辑全局配置                    8.  编辑站点配置"
+		echo "9.  管理站点数据库"
+		echo "------------------------"
+		echo "10. 删除指定站点数据"
+		echo "------------------------"
+		echo "0. 返回上一级选单"
+		echo "------------------------"
+		read -e -p "请输入你的选择: " sub_choice
+		case $sub_choice in
+			1)
+				send_stats "申请域名证书"
+				read -e -p "请输入你的域名: " yuming
+				install_certbot
+				yes | certbot delete --cert-name $yuming > /dev/null 2>&1
+				install_ssltls
+				certs_status
+
+				;;
+
+			2)
+				send_stats "更换站点域名"
+				echo -e "${gl_hong}强烈建议: ${gl_bai}先备份好全站数据再更换站点域名！"
+				read -e -p "请输入旧域名: " oddyuming
+				read -e -p "请输入新域名: " yuming
+				install_certbot
+				install_ssltls
+				certs_status
+
+				# mysql替换
+				add_db
+
+				odd_dbname=$(echo "$oddyuming" | sed -e 's/[^A-Za-z0-9]/_/g')
+				odd_dbname="${odd_dbname}"
+
+				docker exec mysql mysqldump -u root -p"$dbrootpasswd" $odd_dbname | docker exec -i mysql mysql -u root -p"$dbrootpasswd" $dbname
+				docker exec mysql mysql -u root -p"$dbrootpasswd" -e "DROP DATABASE $odd_dbname;"
+
+
+				tables=$(docker exec mysql mysql -u root -p"$dbrootpasswd" -D $dbname -e "SHOW TABLES;" | awk '{ if (NR>1) print $1 }')
+				for table in $tables; do
+					columns=$(docker exec mysql mysql -u root -p"$dbrootpasswd" -D $dbname -e "SHOW COLUMNS FROM $table;" | awk '{ if (NR>1) print $1 }')
+					for column in $columns; do
+						docker exec mysql mysql -u root -p"$dbrootpasswd" -D $dbname -e "UPDATE $table SET $column = REPLACE($column, '$oddyuming', '$yuming') WHERE $column LIKE '%$oddyuming%';"
+					done
+				done
+
+				# docker exec mysql mysql -u root -p"$dbrootpasswd" -D $dbname -e "
+				# UPDATE wp_options SET option_value = replace(option_value, '$oddyuming', '$yuming') WHERE option_name = 'home' OR option_name = 'siteurl';
+				# UPDATE wp_posts SET guid = replace(guid, '$oddyuming', '$yuming');
+				# UPDATE wp_posts SET post_content = replace(post_content, '$oddyuming', '$yuming');
+				# UPDATE wp_postmeta SET meta_value = replace(meta_value,'$oddyuming', '$yuming');
+				# "
+
+
+				# 网站目录替换
+				mv /home/web/html/$oddyuming /home/web/html/$yuming
+				# sed -i "s/$odd_dbname/$dbname/g" /home/web/html/$yuming/wordpress/wp-config.php
+				# sed -i "s/$oddyuming/$yuming/g" /home/web/html/$yuming/wordpress/wp-config.php
+
+				find /home/web/html/$yuming -type f -exec sed -i "s/$odd_dbname/$dbname/g" {} +
+				find /home/web/html/$yuming -type f -exec sed -i "s/$oddyuming/$yuming/g" {} +
+
+				mv /home/web/conf.d/$oddyuming.conf /home/web/conf.d/$yuming.conf
+				sed -i "s/$oddyuming/$yuming/g" /home/web/conf.d/$yuming.conf
+
+				rm /home/web/certs/${oddyuming}_key.pem
+				rm /home/web/certs/${oddyuming}_cert.pem
+
+				docker restart nginx
+
+				;;
+
+
+			3)
+				web_cache
+				;;
+			4)
+				send_stats "查看站点数据"
+				install goaccess
+				goaccess --log-format=COMBINED /home/web/log/nginx/access.log
+				;;
+			5)
+				send_stats "查看访问日志"
+				tail -n 200 /home/web/log/nginx/access.log
+				break_end
+				;;
+			6)
+				send_stats "查看错误日志"
+				tail -n 200 /home/web/log/nginx/error.log
+				break_end
+				;;
+			7)
+				send_stats "编辑全局配置"
+				install nano
+				nano /home/web/nginx.conf
+				docker restart nginx
+				;;
+
+			8)
+				send_stats "编辑站点配置"
+				read -e -p "编辑站点配置，请输入你要编辑的域名: " yuming
+				install nano
+				nano /home/web/conf.d/$yuming.conf
+				docker restart nginx
+				;;
+			9)
+				phpmyadmin_upgrade
+				break_end
+				;;
+			10)
+				web_del
+
+				;;
+			0)
+				break  # 跳出循环，退出菜单
+				;;
+			*)
+				break  # 跳出循环，退出菜单
+				;;
+		esac
+	done
+
+
+}
 
 
 
@@ -1544,7 +1972,7 @@ check_panel_app() {
 if $lujing ; then
 	check_panel="${gl_lv}已安装${gl_bai}"
 else
-	check_panel="${hui}未安装${gl_bai}"
+	check_panel="${gl_hui}未安装${gl_bai}"
 fi
 
 }
@@ -1906,7 +2334,7 @@ dd_xitong() {
 			echo "重装系统"
 			echo "--------------------------------"
 			echo -e "${gl_hong}注意: ${gl_bai}重装有风险失联，不放心者慎用。重装预计花费15分钟，请提前备份数据。"
-			echo -e "${hui}感谢MollyLau大佬和bin456789大佬的脚本支持！${gl_bai} "
+			echo -e "${gl_hui}感谢MollyLau大佬和bin456789大佬的脚本支持！${gl_bai} "
 			echo "------------------------"
 			echo "1. Debian 12                  2. Debian 11"
 			echo "3. Debian 10                  4. Debian 9"
@@ -1917,7 +2345,7 @@ dd_xitong() {
 			echo "21. Rocky Linux 9             22. Rocky Linux 8"
 			echo "23. Alma Linux 9              24. Alma Linux 8"
 			echo "25. oracle Linux 9            26. oracle Linux 8"
-			echo "27. Fedora Linux 40           28. Fedora Linux 39"
+			echo "27. Fedora Linux 41           28. Fedora Linux 40"
 			echo "29. CentOS 7"
 			echo "------------------------"
 			echo "31. Alpine Linux              32. Arch Linux"
@@ -2039,7 +2467,7 @@ dd_xitong() {
 				;;
 
 			  27)
-				send_stats "重装fedora40"
+				send_stats "重装fedora41"
 				dd_xitong_3
 				bash reinstall.sh fedora
 				reboot
@@ -2047,9 +2475,9 @@ dd_xitong() {
 				;;
 
 			  28)
-				send_stats "重装fedora39"
+				send_stats "重装fedora40"
 				dd_xitong_3
-				bash reinstall.sh fedora 39
+				bash reinstall.sh fedora 40
 				reboot
 				exit
 				;;
@@ -2678,6 +3106,81 @@ optimize_web_server() {
 }
 
 
+Kernel_optimize() {
+	root_use
+	while true; do
+	  clear
+	  send_stats "Linux内核调优管理"
+	  echo "Linux系统内核参数优化"
+	  echo "视频介绍: https://www.bilibili.com/video/BV1Kb421J7yg?t=0.1"
+	  echo "------------------------------------------------"
+	  echo "提供多种系统参数调优模式，用户可以根据自身使用场景进行选择切换。"
+	  echo -e "${gl_huang}提示: ${gl_bai}生产环境请谨慎使用！"
+	  echo "--------------------"
+	  echo "1. 高性能优化模式：     最大化系统性能，优化文件描述符、虚拟内存、网络设置、缓存管理和CPU设置。"
+	  echo "2. 均衡优化模式：       在性能与资源消耗之间取得平衡，适合日常使用。"
+	  echo "3. 网站优化模式：       针对网站服务器进行优化，提高并发连接处理能力、响应速度和整体性能。"
+	  echo "4. 直播优化模式：       针对直播推流的特殊需求进行优化，减少延迟，提高传输性能。"
+	  echo "5. 游戏服优化模式：     针对游戏服务器进行优化，提高并发处理能力和响应速度。"
+	  echo "6. 还原默认设置：       将系统设置还原为默认配置。"
+	  echo "--------------------"
+	  echo "0. 返回上一级"
+	  echo "--------------------"
+	  read -e -p "请输入你的选择: " sub_choice
+	  case $sub_choice in
+		  1)
+			  cd ~
+			  clear
+			  tiaoyou_moshi="高性能优化模式"
+			  optimize_high_performance
+			  send_stats "高性能模式优化"
+			  ;;
+		  2)
+			  cd ~
+			  clear
+			  optimize_balanced
+			  send_stats "均衡模式优化"
+			  ;;
+		  3)
+			  cd ~
+			  clear
+			  optimize_web_server
+			  send_stats "网站优化模式"
+			  ;;
+		  4)
+			  cd ~
+			  clear
+			  tiaoyou_moshi="直播优化模式"
+			  optimize_high_performance
+			  send_stats "直播推流优化"
+			  ;;
+		  5)
+			  cd ~
+			  clear
+			  tiaoyou_moshi="游戏服优化模式"
+			  optimize_high_performance
+			  send_stats "游戏服优化"
+			  ;;
+		  6)
+			  cd ~
+			  clear
+			  restore_defaults
+			  send_stats "还原默认设置"
+			  ;;
+		  0)
+			  break
+			  ;;
+		  *)
+			  echo "无效的选择，请重新输入。"
+			  ;;
+	  esac
+	  break_end
+	done
+}
+
+
+
+
 
 update_locale() {
 	local lang=$1
@@ -2762,7 +3265,7 @@ else
 	echo "${bianse}" >> ~/.profile
 	# source ~/.profile
 fi
-echo -e "${gl_lv}变更完成。重新连接SSH后可查看变化！${bai}"
+echo -e "${gl_lv}变更完成。重新连接SSH后可查看变化！${gl_bai}"
 
 break_end
 
@@ -2777,12 +3280,12 @@ shell_bianse() {
 	clear
 	echo "命令行美化工具"
 	echo "------------------------"
-	echo -e "1. \033[1;32mroot \033[1;34mlocalhost \033[1;31m~ \033[0m${bai}#"
-	echo -e "2. \033[1;35mroot \033[1;36mlocalhost \033[1;33m~ \033[0m${bai}#"
-	echo -e "3. \033[1;31mroot \033[1;32mlocalhost \033[1;34m~ \033[0m${bai}#"
-	echo -e "4. \033[1;36mroot \033[1;33mlocalhost \033[1;37m~ \033[0m${bai}#"
-	echo -e "5. \033[1;37mroot \033[1;31mlocalhost \033[1;32m~ \033[0m${bai}#"
-	echo -e "6. \033[1;33mroot \033[1;34mlocalhost \033[1;35m~ \033[0m${bai}#"
+	echo -e "1. \033[1;32mroot \033[1;34mlocalhost \033[1;31m~ \033[0m${gl_bai}#"
+	echo -e "2. \033[1;35mroot \033[1;36mlocalhost \033[1;33m~ \033[0m${gl_bai}#"
+	echo -e "3. \033[1;31mroot \033[1;32mlocalhost \033[1;34m~ \033[0m${gl_bai}#"
+	echo -e "4. \033[1;36mroot \033[1;33mlocalhost \033[1;37m~ \033[0m${gl_bai}#"
+	echo -e "5. \033[1;37mroot \033[1;31mlocalhost \033[1;32m~ \033[0m${gl_bai}#"
+	echo -e "6. \033[1;33mroot \033[1;34mlocalhost \033[1;35m~ \033[0m${gl_bai}#"
 	echo -e "7. root localhost ~ #"
 	echo "------------------------"
 	echo "0. 返回上一级"
@@ -2830,7 +3333,74 @@ shell_bianse() {
 
 
 
+linux_trash() {
+  root_use
+  send_stats "系统回收站"
 
+  local bashrc_profile="/root/.bashrc"
+  local TRASH_DIR="$HOME/.local/share/Trash/files"
+
+  while true; do
+
+	local trash_status
+	if ! grep -q "trash-put" "$bashrc_profile"; then
+		trash_status="${gl_hui}未启用${gl_bai}"
+	else
+		trash_status="${gl_lv}已启用${gl_bai}"
+	fi
+
+	clear
+	echo -e "当前回收站 ${trash_status}"
+	echo -e "启用后rm删除的文件先进入回收站，防止误删重要文件！"
+	echo "------------------------------------------------"
+	ls -l --color=auto "$TRASH_DIR" 2>/dev/null || echo "回收站为空"
+	echo "------------------------"
+	echo "1. 启用回收站          2. 关闭回收站"
+	echo "3. 还原内容            4. 清空回收站"
+	echo "------------------------"
+	echo "0. 返回上一级"
+	echo "------------------------"
+	read -e -p "输入你的选择: " choice
+
+	case $choice in
+	  1)
+		k add trash-cli
+		sed -i '/alias rm/d' "$bashrc_profile"
+		echo "alias rm='trash-put'" >> "$bashrc_profile"
+		source "$bashrc_profile"
+		echo "回收站已启用，删除的文件将移至回收站。"
+		sleep 2
+		;;
+	  2)
+		k del trash-cli
+		sed -i '/alias rm/d' "$bashrc_profile"
+		echo "alias rm='rm -i'" >> "$bashrc_profile"
+		source "$bashrc_profile"
+		echo "回收站已关闭，文件将直接删除。"
+		sleep 2
+		;;
+	  3)
+		read -e -p "输入要还原的文件名: " file_to_restore
+		if [ -e "$TRASH_DIR/$file_to_restore" ]; then
+		  mv "$TRASH_DIR/$file_to_restore" "$HOME/"
+		  echo "$file_to_restore 已还原到主目录。"
+		else
+		  echo "文件不存在。"
+		fi
+		;;
+	  4)
+		read -e -p "确认清空回收站？[y/n]: " confirm
+		if [[ "$confirm" == "y" ]]; then
+		  trash-empty
+		  echo "回收站已清空。"
+		fi
+		;;
+	  *)
+		break
+		;;
+	esac
+  done
+}
 
 
 
@@ -3148,7 +3718,7 @@ linux_tools() {
 		  33)
 			  clear
 			  send_stats "全部卸载"
-			  remove htop iftop unzip tmux ffmpeg btop ranger ncdu fzf cmatrix sl bastet nsnake ninvaders vim nano git
+			  remove htop iftop tmux ffmpeg btop ranger ncdu fzf cmatrix sl bastet nsnake ninvaders vim nano git
 			  ;;
 
 		  41)
@@ -3867,51 +4437,10 @@ linux_ldnmp() {
 
 	case $sub_choice in
 	  1)
-	  send_stats "安装LDNMP环境"
-	  root_use
-	  ldnmp_install_status_one
-	  check_port
-	  install_dependency
-	  install_docker
-	  install_certbot
-
-	  install_ldnmp_conf
-	  install_ldnmp
-
+	  ldnmp_install_all
 		;;
 	  2)
-	  clear
-	  # wordpress
-	  webname="WordPress"
-	  send_stats "安装$webname"
-
-	  ldnmp_install_status
-	  add_yuming
-	  install_ssltls
-	  certs_status
-	  add_db
-
-    wget -O /home/web/conf.d/$yuming.conf ${gh_proxy}https://raw.githubusercontent.com/siilao/sh/main/nginx/wordpress.com.conf
-    sed -i "s/yuming.com/$yuming/g" /home/web/conf.d/$yuming.conf
-
-	  cd /home/web/html
-	  mkdir $yuming
-	  cd $yuming
-	  wget -O latest.zip https://cn.wordpress.org/latest-zh_CN.zip
-	  unzip latest.zip
-	  rm latest.zip
-
-	  echo "define('FS_METHOD', 'direct'); define('WP_REDIS_HOST', 'redis'); define('WP_REDIS_PORT', '6379');" >> /home/web/html/$yuming/wordpress/wp-config-sample.php
-
-	  restart_ldnmp
-
-	  ldnmp_web_on
-	  echo "数据库名: $dbname"
-	  echo "用户名: $dbuse"
-	  echo "密码: $dbusepasswd"
-	  echo "数据库地址: mysql"
-	  echo "表前缀: wp_"
-
+	  ldnmp_wp
 		;;
 
 	  3)
@@ -4253,7 +4782,6 @@ linux_ldnmp() {
 	  esac
 
 	  restart_ldnmp
-
 	  ldnmp_web_on
 	  prefix="web$(shuf -i 10-99 -n 1)_"
 	  echo "数据库地址: mysql"
@@ -4267,23 +4795,7 @@ linux_ldnmp() {
 
 
 	  21)
-	  send_stats "安装nginx环境"
-	  root_use
-	  ldnmp_install_status_one
-	  check_port
-	  install_dependency
-	  install_docker
-	  install_certbot
-
-	  install_ldnmp_conf
-	  nginx_upgrade
-
-	  clear
-	  nginx_version=$(docker exec nginx nginx -v 2>&1)
-	  nginx_version=$(echo "$nginx_version" | grep -oP "nginx/\K[0-9]+\.[0-9]+\.[0-9]+")
-	  echo "nginx已安装完成"
-	  echo -e "当前版本: ${gl_huang}v$nginx_version${gl_bai}"
-	  echo ""
+	  nginx_install_all
 		;;
 
 	  22)
@@ -4291,7 +4803,6 @@ linux_ldnmp() {
 	  webname="站点重定向"
 	  send_stats "安装$webname"
 	  nginx_install_status
-	  ip_address
 	  add_yuming
 	  read -e -p "请输入跳转域名: " reverseproxy
 
@@ -4310,27 +4821,7 @@ linux_ldnmp() {
 		;;
 
 	  23)
-	  clear
-	  webname="反向代理-IP+端口"
-	  send_stats "安装$webname"
-	  nginx_install_status
-	  ip_address
-	  add_yuming
-	  read -e -p "请输入你的反代IP: " reverseproxy
-	  read -e -p "请输入你的反代端口: " port
-
-	  install_ssltls
-	  certs_status
-
-    wget -O /home/web/conf.d/$yuming.conf ${gh_proxy}https://raw.githubusercontent.com/siilao/sh/main/nginx/reverse-proxy.conf
-    sed -i "s/yuming.com/$yuming/g" /home/web/conf.d/$yuming.conf
-    sed -i "s/0.0.0.0/$reverseproxy/g" /home/web/conf.d/$yuming.conf
-    sed -i "s/0000/$port/g" /home/web/conf.d/$yuming.conf
-
-	  docker restart nginx
-
-	  nginx_web_on
-
+	  ldnmp_Proxy
 		;;
 
 	  24)
@@ -4338,7 +4829,6 @@ linux_ldnmp() {
 	  webname="反向代理-域名"
 	  send_stats "安装$webname"
 	  nginx_install_status
-	  ip_address
 	  add_yuming
 	  echo -e "域名格式: ${gl_huang}google.com${gl_bai}"
 	  read -e -p "请输入你的反代域名: " fandai_yuming
@@ -4397,7 +4887,7 @@ linux_ldnmp() {
 	  sed -i "s#root /var/www/html/$yuming/#root $index_lujing#g" /home/web/conf.d/$yuming.conf
 	  sed -i "s#/home/web/#/var/www/#g" /home/web/conf.d/$yuming.conf
 
-	  docker exec nginx chmod -R 777 /var/www/html
+	  docker exec nginx chmod -R nginx:nginx /var/www/html
 	  docker restart nginx
 
 	  nginx_web_on
@@ -4447,172 +4937,7 @@ linux_ldnmp() {
 
 
 	31)
-	root_use
-	while true; do
-		clear
-		send_stats "LDNMP站点管理"
-		echo "LDNMP环境"
-		echo "------------------------"
-		ldnmp_v
-
-		# ls -t /home/web/conf.d | sed 's/\.[^.]*$//'
-		echo "站点信息                      证书到期时间"
-		echo "------------------------"
-		for cert_file in /home/web/certs/*_cert.pem; do
-		  domain=$(basename "$cert_file" | sed 's/_cert.pem//')
-		  if [ -n "$domain" ]; then
-			expire_date=$(openssl x509 -noout -enddate -in "$cert_file" | awk -F'=' '{print $2}')
-			formatted_date=$(date -d "$expire_date" '+%Y-%m-%d')
-			printf "%-30s%s\n" "$domain" "$formatted_date"
-		  fi
-		done
-
-		echo "------------------------"
-		echo ""
-		echo "数据库信息"
-		echo "------------------------"
-		dbrootpasswd=$(grep -oP 'MYSQL_ROOT_PASSWORD:\s*\K.*' /home/web/docker-compose.yml | tr -d '[:space:]')
-		docker exec mysql mysql -u root -p"$dbrootpasswd" -e "SHOW DATABASES;" 2> /dev/null | grep -Ev "Database|information_schema|mysql|performance_schema|sys"
-
-		echo "------------------------"
-		echo ""
-		echo "站点目录"
-		echo "------------------------"
-		echo -e "数据 ${hui}/home/web/html${gl_bai}     证书 ${hui}/home/web/certs${gl_bai}     配置 ${hui}/home/web/conf.d${gl_bai}"
-		echo "------------------------"
-		echo ""
-		echo "操作"
-		echo "------------------------"
-		echo "1. 申请/更新域名证书               2. 更换站点域名"
-		echo "3. 清理站点缓存                    4. 查看站点分析报告"
-		echo "5. 编辑全局配置                    6. 编辑站点配置"
-		echo "------------------------"
-		echo "7. 删除指定站点                    8. 删除指定数据库"
-		echo "------------------------"
-		echo "0. 返回上一级选单"
-		echo "------------------------"
-		read -e -p "请输入你的选择: " sub_choice
-		case $sub_choice in
-			1)
-				send_stats "申请域名证书"
-				read -e -p "请输入你的域名: " yuming
-				install_certbot
-				install_ssltls
-				certs_status
-
-				;;
-
-			2)
-				send_stats "更换站点域名"
-				echo -e "${gl_hong}强烈建议: ${gl_bai}先备份好全站数据再更换站点域名！"
-				read -e -p "请输入旧域名: " oddyuming
-				read -e -p "请输入新域名: " yuming
-				install_certbot
-				install_ssltls
-				certs_status
-
-				# mysql替换
-				add_db
-
-				odd_dbname=$(echo "$oddyuming" | sed -e 's/[^A-Za-z0-9]/_/g')
-				odd_dbname="${odd_dbname}"
-
-				docker exec mysql mysqldump -u root -p"$dbrootpasswd" $odd_dbname | docker exec -i mysql mysql -u root -p"$dbrootpasswd" $dbname
-				docker exec mysql mysql -u root -p"$dbrootpasswd" -e "DROP DATABASE $odd_dbname;"
-
-
-				tables=$(docker exec mysql mysql -u root -p"$dbrootpasswd" -D $dbname -e "SHOW TABLES;" | awk '{ if (NR>1) print $1 }')
-				for table in $tables; do
-					columns=$(docker exec mysql mysql -u root -p"$dbrootpasswd" -D $dbname -e "SHOW COLUMNS FROM $table;" | awk '{ if (NR>1) print $1 }')
-					for column in $columns; do
-						docker exec mysql mysql -u root -p"$dbrootpasswd" -D $dbname -e "UPDATE $table SET $column = REPLACE($column, '$oddyuming', '$yuming') WHERE $column LIKE '%$oddyuming%';"
-					done
-				done
-
-				# docker exec mysql mysql -u root -p"$dbrootpasswd" -D $dbname -e "
-				# UPDATE wp_options SET option_value = replace(option_value, '$oddyuming', '$yuming') WHERE option_name = 'home' OR option_name = 'siteurl';
-				# UPDATE wp_posts SET guid = replace(guid, '$oddyuming', '$yuming');
-				# UPDATE wp_posts SET post_content = replace(post_content, '$oddyuming', '$yuming');
-				# UPDATE wp_postmeta SET meta_value = replace(meta_value,'$oddyuming', '$yuming');
-				# "
-
-
-				# 网站目录替换
-				mv /home/web/html/$oddyuming /home/web/html/$yuming
-				# sed -i "s/$odd_dbname/$dbname/g" /home/web/html/$yuming/wordpress/wp-config.php
-				# sed -i "s/$oddyuming/$yuming/g" /home/web/html/$yuming/wordpress/wp-config.php
-
-				find /home/web/html/$yuming -type f -exec sed -i "s/$odd_dbname/$dbname/g" {} +
-				find /home/web/html/$yuming -type f -exec sed -i "s/$oddyuming/$yuming/g" {} +
-
-				mv /home/web/conf.d/$oddyuming.conf /home/web/conf.d/$yuming.conf
-				sed -i "s/$oddyuming/$yuming/g" /home/web/conf.d/$yuming.conf
-
-				rm /home/web/certs/${oddyuming}_key.pem
-				rm /home/web/certs/${oddyuming}_cert.pem
-
-				docker restart nginx
-
-				;;
-
-
-			3)
-				send_stats "清理站点缓存"
-				# docker exec -it nginx rm -rf /var/cache/nginx
-				docker exec php php -r 'opcache_reset();'
-				docker exec php74 php -r 'opcache_reset();'
-				docker restart nginx php php74 redis
-				docker exec redis redis-cli FLUSHALL
-				docker exec -it redis redis-cli CONFIG SET maxmemory 512mb
-				docker exec -it redis redis-cli CONFIG SET maxmemory-policy allkeys-lru
-
-				;;
-			4)
-				send_stats "查看站点数据"
-				install goaccess
-				goaccess --log-format=COMBINED /home/web/log/nginx/access.log
-
-				;;
-
-			5)
-				send_stats "编辑全局配置"
-				install nano
-				nano /home/web/nginx.conf
-				docker restart nginx
-				;;
-
-			6)
-				send_stats "编辑站点配置"
-				read -e -p "编辑站点配置，请输入你要编辑的域名: " yuming
-				install nano
-				nano /home/web/conf.d/$yuming.conf
-				docker restart nginx
-				;;
-
-			7)
-				send_stats "删除站点数据目录"
-				read -e -p "删除站点数据目录，请输入你的域名: " yuming
-				rm -r /home/web/html/$yuming
-				rm /home/web/conf.d/$yuming.conf
-				rm /home/web/certs/${yuming}_key.pem
-				rm /home/web/certs/${yuming}_cert.pem
-				docker restart nginx
-				;;
-			8)
-				send_stats "删除站点数据库"
-				read -e -p "删除站点数据库，请输入数据库名: " shujuku
-				dbrootpasswd=$(grep -oP 'MYSQL_ROOT_PASSWORD:\s*\K.*' /home/web/docker-compose.yml | tr -d '[:space:]')
-				docker exec mysql mysql -u root -p"$dbrootpasswd" -e "DROP DATABASE $shujuku;" 2> /dev/null
-				;;
-			0)
-				break  # 跳出循环，退出菜单
-				;;
-			*)
-				break  # 跳出循环，退出菜单
-				;;
-		esac
-	done
-
+	  ldnmp_web_status
 	  ;;
 
 
@@ -4910,24 +5235,14 @@ linux_ldnmp() {
 
 		else
 			clear
-			install_docker
-
-
-			wget -O /home/web/nginx.conf ${gh_proxy}https://raw.githubusercontent.com/siilao/sh/main/nginx/nginx10.conf
-			wget -O /home/web/conf.d/default.conf ${gh_proxy}https://raw.githubusercontent.com/siilao/sh/main/nginx/default10.conf
-			default_server_ssl
-			nginx_upgrade
-
 			f2b_install_sshd
 			cd /path/to/fail2ban/config/fail2ban/filter.d
 			curl -sS -O ${gh_proxy}https://raw.githubusercontent.com/siilao/sh/main/fail2ban-nginx-cc.conf
 			cd /path/to/fail2ban/config/fail2ban/jail.d/
 			curl -sS -O ${gh_proxy}https://raw.githubusercontent.com/siilao/sh/main/config/fail2ban/nginx-docker-cc.conf
 			sed -i "/cloudflare/d" /path/to/fail2ban/config/fail2ban/jail.d/nginx-docker-cc.conf
-
 			f2b_status
 			cd ~
-
 			echo "防御程序已开启"
 		fi
 	  break_end
@@ -5066,11 +5381,13 @@ linux_ldnmp() {
 			  version=${version:-8.3}
 			  cd /home/web/
 			  cp /home/web/docker-compose.yml /home/web/docker-compose1.yml
+			  sed -i "s/kjlion\///g" /home/web/docker-compose.yml > /dev/null 2>&1
 			  sed -i "s/image: php:fpm-alpine/image: php:${version}-fpm-alpine/" /home/web/docker-compose.yml
 			  docker rm -f $ldnmp_pods
 			  docker images --filter=reference="$ldnmp_pods*" -q | xargs docker rmi > /dev/null 2>&1
+  			  docker images --filter=reference="kjlion/${ldnmp_pods}*" -q | xargs docker rmi > /dev/null 2>&1
 			  docker compose up -d --force-recreate $ldnmp_pods
-			  docker exec $ldnmp_pods chmod -R 777 /var/www/html
+			  docker exec php chown -R www-data:www-data /var/www/html
 
 			  run_command docker exec php sed -i "s/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g" /etc/apk/repositories > /dev/null 2>&1
 
@@ -5165,6 +5482,8 @@ linux_ldnmp() {
 			cd /home/web/
 			docker compose down
 			docker compose down --rmi all
+			docker compose -f docker-compose.phpmyadmin.yml down > /dev/null 2>&1
+			docker compose -f docker-compose.phpmyadmin.yml down --rmi all > /dev/null 2>&1
 			rm -rf /home/web
 			;;
 		  [Nn])
@@ -5327,7 +5646,7 @@ linux_panel() {
 		  5)
 
 			docker_name="alist"
-			docker_img="xhofe/alist:latest"
+			docker_img="xhofe/alist-aria2:latest"
 			docker_port=5244
 			docker_rum="docker run -d \
 								--restart=always \
@@ -5337,7 +5656,7 @@ linux_panel() {
 								-e PGID=0 \
 								-e UMASK=022 \
 								--name="alist" \
-								xhofe/alist:latest"
+								xhofe/alist-aria2:latest"
 			docker_describe="一个支持多种存储，支持网页浏览和 WebDAV 的文件列表程序，由 gin 和 Solidjs 驱动"
 			docker_url="官网介绍: https://alist.nn.ci/zh/"
 			docker_use="docker exec -it alist ./alist admin random"
@@ -6498,8 +6817,9 @@ linux_Settings() {
 	  echo -e "${gl_slao}29.  ${gl_bai}病毒扫描工具 ${gl_huang}★${gl_bai}                     ${gl_slao}30.  ${gl_bai}文件管理器"
 	  echo -e "${gl_slao}------------------------"
 	  echo -e "${gl_slao}31.  ${gl_bai}切换系统语言                       ${gl_slao}32.  ${gl_bai}命令行美化工具"
+		echo -e "${gl_slao}33.  ${gl_bai}设置系统回收站"
 	  echo -e "${gl_slao}------------------------"
-	  echo -e "${gl_slao}41.  ${gl_bai}留言板                             ${gl_slao}66.  ${gl_bai}一条龙系统调优 ${gl_huang}★${gl_bai}"
+	  echo -e "${gl_slao}66.  ${gl_bai}一条龙系统调优 ${gl_huang}★${gl_bai}"
 	  echo -e "${gl_slao}------------------------"
 	  echo -e "${gl_slao}99.  ${gl_bai}重启服务器                         ${gl_slao}100. ${gl_bai}隐私与安全"
 	  echo -e "${gl_slao}------------------------"
@@ -7070,13 +7390,15 @@ EOF
 				  echo ""
 				  echo "防火墙管理"
 				  echo "------------------------"
-				  echo "1. 开放指定端口              2. 关闭指定端口"
-				  echo "3. 开放所有端口              4. 关闭所有端口"
+				  echo "1.  开放指定端口                 2.  关闭指定端口"
+				  echo "3.  开放所有端口                 4.  关闭所有端口"
 				  echo "------------------------"
-				  echo "5. IP白名单                  6. IP黑名单"
-				  echo "7. 清除指定IP"
+				  echo "5.  IP白名单                  	 6.  IP黑名单"
+				  echo "7.  清除指定IP"
 				  echo "------------------------"
-				  echo "9. 卸载防火墙"
+				  echo "11. 允许PING                  	 12. 禁止PING"
+				  echo "------------------------"
+				  echo "99. 卸载防火墙"
 				  echo "------------------------"
 				  echo "0. 返回上一级选单"
 				  echo "------------------------"
@@ -7156,7 +7478,20 @@ EOF
 						  send_stats "清除指定IP"
 						  ;;
 
-					  9)
+					  11)
+						  sed -i '$i -A INPUT -p icmp --icmp-type echo-request -j ACCEPT' /etc/iptables/rules.v4
+						  sed -i '$i -A OUTPUT -p icmp --icmp-type echo-reply -j ACCEPT' /etc/iptables/rules.v4
+						  iptables-restore < /etc/iptables/rules.v4
+						  send_stats "允许ping"
+						  ;;
+
+					  12)
+						  sed -i "/icmp/d" /etc/iptables/rules.v4
+						  iptables-restore < /etc/iptables/rules.v4
+						  send_stats "禁用ping"
+						  ;;
+
+					  99)
 						  remove iptables-persistent
 						  rm /etc/iptables/rules.v4
 						  send_stats "卸载防火墙"
@@ -7523,7 +7858,7 @@ EOF
 					echo -e "${gl_lv}当前设置的进站限流阈值为: ${gl_huang}${rx_threshold_gb}${gl_lv}GB${gl_bai}"
 					echo -e "${gl_lv}当前设置的出站限流阈值为: ${gl_huang}${tx_threshold_gb}${gl_lv}GB${gl_bai}"
 				else
-					echo -e "${hui}当前未启用限流关机功能${gl_bai}"
+					echo -e "${gl_hui}当前未启用限流关机功能${gl_bai}"
 				fi
 
 				echo
@@ -7601,7 +7936,7 @@ EOF
 			  echo "------------------------------------------------"
 			  echo "您需要配置tg机器人API和接收预警的用户ID，即可实现本机CPU，内存，硬盘，流量，SSH登录的实时监控预警"
 			  echo "到达阈值后会向用户发预警消息"
-			  echo -e "${hui}-关于流量，重启服务器将重新计算-${gl_bai}"
+			  echo -e "${gl_hui}-关于流量，重启服务器将重新计算-${gl_bai}"
 			  read -e -p "确定继续吗？(Y/N): " choice
 
 			  case "$choice" in
@@ -7640,7 +7975,7 @@ EOF
 
 				  clear
 				  echo "TG-bot预警系统已启动"
-				  echo -e "${hui}你还可以将root目录中的TG-check-notify.sh预警文件放到其他机器上直接使用！${gl_bai}"
+				  echo -e "${gl_hui}你还可以将root目录中的TG-check-notify.sh预警文件放到其他机器上直接使用！${gl_bai}"
 				  ;;
 				[Nn])
 				  echo "已取消"
@@ -7664,84 +7999,8 @@ EOF
 		  27)
 			  elrepo
 			  ;;
-
-
 		  28)
-			root_use
-			while true; do
-			  clear
-			  send_stats "Linux内核调优管理"
-			  echo "Linux系统内核参数优化"
-			  echo "视频介绍: https://www.bilibili.com/video/BV1Kb421J7yg?t=0.1"
-			  echo "------------------------------------------------"
-			  echo "提供多种系统参数调优模式，用户可以根据自身使用场景进行选择切换。"
-			  echo -e "${gl_huang}提示: ${gl_bai}生产环境请谨慎使用！"
-			  echo "--------------------"
-			  echo "1. 高性能优化模式：     最大化系统性能，优化文件描述符、虚拟内存、网络设置、缓存管理和CPU设置。"
-			  echo "2. 均衡优化模式：       在性能与资源消耗之间取得平衡，适合日常使用。"
-			  echo "3. 网站优化模式：       针对网站服务器进行优化，提高并发连接处理能力、响应速度和整体性能。"
-			  echo "4. 直播优化模式：       针对直播推流的特殊需求进行优化，减少延迟，提高传输性能。"
-			  echo "5. 游戏服优化模式：     针对游戏服务器进行优化，提高并发处理能力和响应速度。"
-			  echo "6. 还原默认设置：       将系统设置还原为默认配置。"
-			  echo "--------------------"
-			  echo "0. 返回上一级"
-			  echo "--------------------"
-			  read -e -p "请输入你的选择: " sub_choice
-			  case $sub_choice in
-				  1)
-					  cd ~
-					  clear
-					  tiaoyou_moshi="高性能优化模式"
-					  optimize_high_performance
-					  send_stats "高性能模式优化"
-
-					  ;;
-				  2)
-					  cd ~
-					  clear
-					  optimize_balanced
-					  send_stats "均衡模式优化"
-
-					  ;;
-				  3)
-					  cd ~
-					  clear
-					  optimize_web_server
-					  send_stats "网站优化模式"
-
-					  ;;
-				  4)
-					  cd ~
-					  clear
-					  tiaoyou_moshi="直播优化模式"
-					  optimize_high_performance
-					  send_stats "直播推流优化"
-
-					  ;;
-				  5)
-					  cd ~
-					  clear
-					  tiaoyou_moshi="游戏服优化模式"
-					  optimize_high_performance
-					  send_stats "游戏服优化"
-
-					  ;;
-				  6)
-					  cd ~
-					  clear
-					  restore_defaults
-					  send_stats "还原默认设置"
-
-					  ;;
-				  0)
-					  break
-					  ;;
-				  *)
-					  echo "无效的选择，请重新输入。"
-					  ;;
-			  esac
-			  break_end
-			done
+			  Kernel_optimize
 			  ;;
 
 		  29)
@@ -7759,8 +8018,9 @@ EOF
 		  32)
 			  shell_bianse
 			  ;;
-
-
+		  33)
+			  linux_trash
+			  ;;
 		  66)
 
 			  root_use
@@ -8378,11 +8638,11 @@ siilao_update() {
 				fi
 				CheckFirstRun_true
 				yinsiyuanquan2
-        cp ./siilao.sh /usr/local/bin/s > /dev/null 2>&1
+        cp -f ./siilao.sh /usr/local/bin/s > /dev/null 2>&1
 				echo -e "${gl_lv}脚本已更新到最新版本！${gl_huang}v$sh_v_new${gl_bai}"
 				send_stats "脚本已经最新$sh_v_new"
 				break_end
-        siilao
+        ./siilao.sh
 				exit
 				;;
 			[Nn])
@@ -8426,7 +8686,6 @@ echo "------------------------"
 echo -e "域名优惠"
 echo "------------------------"
 echo -e "${gl_lan}GNAME 8.8刀首年COM域名 6.68刀首年CC域名${gl_bai}"
-echo -e "${gl_bai}网址: https://www.gname.com/register?tt=86836&ttcode=KEJILION86836&ttbj=sh${gl_bai}"
 echo "------------------------"
 echo ""
 }
@@ -8506,6 +8765,8 @@ echo "更新系统            s update | s 更新"
 echo "清理系统垃圾        s clean | s 清理"
 echo "打开重装系统面板    s dd | s 重装"
 echo "打开bbr3控制面板    s bbr3 | s bbrv3"
+echo "打开内核调优面膜    s nhyh | s 内核优化"
+echo "打开系统回收站      s trash | s hsz | s 回收站"
 echo "软件启动            s start sshd | s 启动 sshd "
 echo "软件停止            s stop sshd | s 停止 sshd "
 echo "软件重启            s restart sshd | s 重启 sshd "
@@ -8513,14 +8774,15 @@ echo "软件状态查看        s status sshd | s 状态 sshd "
 echo "软件开机启动        s enable docker | s autostart docke | s 开机启动 docker "
 echo "域名证书申请        s ssl"
 echo "域名证书到期查询    s ssl ps"
+echo "docker环境安装      s docker install |s docker 安装"
 echo "docker容器管理      s docker ps |s docker 容器"
 echo "docker镜像管理      s docker img |s docker 镜像"
+echo "LDNMP站点管理       s web"
+echo "LDNMP缓存清理       s web cache"
+echo "安装WordPress       s wp |s wordpress |s wp xxx.com"
+echo "安装反向代理        s fd |s rp |s 反代 |s fd xxx.com"
 
 }
-
-
-
-
 
 
 
@@ -8552,6 +8814,21 @@ else
 		bbr3|bbrv3)
 			bbrv3
 			;;
+		nhyh|内核优化)
+			Kernel_optimize
+			;;
+		trash|hsz|回收站)
+			linux_trash
+			;;
+		wp|wordpress)
+			shift
+			ldnmp_wp "$@"
+
+			;;
+		fd|rp|反代)
+			shift
+			ldnmp_Proxy "$@"
+			;;
 		status|状态)
 			shift
 			send_stats "软件状态查看"
@@ -8580,21 +8857,28 @@ else
 			;;
 
 		ssl)
-		   shift
+			shift
 			if [ "$1" = "ps" ]; then
 				send_stats "查看证书状态"
 				ssl_ps
 			elif [ -z "$1" ]; then
 				add_ssl
 				send_stats "快速申请证书"
+			elif [ -n "$1" ]; then
+				add_ssl "$1"
+				send_stats "快速申请证书"
 			else
-				k_info
+				s_info
 			fi
 			;;
 
 		docker)
 			shift
 			case $1 in
+				install|安装)
+					send_stats "快捷安装docker"
+					install_docker
+					;;
 				ps|容器)
 					send_stats "快捷容器管理"
 					docker_ps
@@ -8604,11 +8888,21 @@ else
 					docker_image
 					;;
 				*)
-					k_info
+					s_info
 					;;
 			esac
 			;;
 
+		web)
+		   shift
+			if [ "$1" = "cache" ]; then
+				web_cache
+			elif [ -z "$1" ]; then
+				ldnmp_web_status
+			else
+				s_info
+			fi
+			;;
 		*)
 			s_info
 			;;
