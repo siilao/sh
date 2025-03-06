@@ -13,5 +13,5 @@
 ### 一键脚本
 
 ```
-bash <(curl -sL kejilion.sh)
+bash <(curl -sL silao.sh)
 ```
