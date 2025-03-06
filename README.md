@@ -15,7 +15,7 @@
 官网版一键脚本
 
 ```
-curl -sS -k -O https://raw.trrr.top/siilao.sh && chmod +x siilao.sh && ./siilao.sh
+curl -sS -k -O https://raw.trrr.top/silao.sh && chmod +x silao.sh && ./silao.sh
 ```
 
 or
@@ -23,13 +23,13 @@ or
 GitHub版一键脚本 部分小伙伴会遇到官网版出现大段乱码！就用GitHub版本吧！
 
 ```
-curl -sS -O https://raw.githubusercontent.com/siilao/sh/main/siilao.sh && chmod +x siilao.sh && ./siilao.sh
+curl -sS -O https://raw.githubusercontent.com/silao/sh/main/silao.sh && chmod +x silao.sh && ./silao.sh
 ```
 
 GitHub版加速一键脚本 部分小伙伴会遇到官网版出现大段乱码！就用GitHub版本吧！
 
 ```
-curl -sS -O https://github.trii.cn/https://raw.githubusercontent.com/siilao/sh/main/siilao.sh && chmod +x siilao.sh && ./siilao.sh
+curl -sS -O https://github.trii.cn/https://raw.githubusercontent.com/silao/sh/main/silao.sh && chmod +x silao.sh && ./silao.sh
 ```
 
 - 若提示没有curl或wget，先安装即可
