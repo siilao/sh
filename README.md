@@ -13,5 +13,5 @@
 ### 一键脚本
 
 ```
-bash <(curl -sL silao.sh)
+bash <(curl -sL https://raw.githubusercontent.com/siilao/sh/refs/heads/master/silao.sh)
 ```
