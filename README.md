@@ -6,34 +6,12 @@
 
 ### 肆佬一键脚本工具 的支持列表：
 
-> Debian Ubuntu Cent OS
+> Ubuntu Debian CentOS Alpine Kali Arch RedHat Fedora Alma Rocky
 
 ------
 
 ### 一键脚本
 
-官网版一键脚本
-
 ```
-curl -sS -k -O https://raw.trrr.top/silao.sh && chmod +x silao.sh && ./silao.sh
+bash <(curl -sL kejilion.sh)
 ```
-
-or
-
-GitHub版一键脚本 部分小伙伴会遇到官网版出现大段乱码！就用GitHub版本吧！
-
-```
-curl -sS -O https://raw.githubusercontent.com/silao/sh/main/silao.sh && chmod +x silao.sh && ./silao.sh
-```
-
-GitHub版加速一键脚本 部分小伙伴会遇到官网版出现大段乱码！就用GitHub版本吧！
-
-```
-curl -sS -O https://github.trii.cn/https://raw.githubusercontent.com/silao/sh/main/silao.sh && chmod +x silao.sh && ./silao.sh
-```
-
-- 若提示没有curl或wget，先安装即可
-- Ubuntu/Debian：apt-get install -y curl wget
-- Alpine：apk add curl wget
-- Fedora：dnf install -y curl wget
-- CentOS/Rocky/Almalinux/Oracle-linux/Amazon-linux：yum install -y curl wget
