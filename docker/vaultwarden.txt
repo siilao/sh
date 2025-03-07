@@ -1,0 +1,15 @@
+docker run -d \
+    --name vaultwarden \
+    -p 8080:80 \
+    -v /home/docker/vaultwarden/data:/data \
+    -e LOGIN_RATELIMIT_MAX_BURST=10 \
+    -e LOGIN_RATELIMIT_SECONDS=60 \
+    -e ADMIN_RATELIMIT_MAX_BURST=10 \
+    -e ADMIN_RATELIMIT_SECONDS=60 \
+    -e ADMIN_SESSION_LIFETIME=20 \
+    -e ADMIN_TOKEN=hCWqQngEdKJmWGTSHUvhwyVnSmAPUK \
+    -e SENDS_ALLOWED=true \
+    -e EMERGENCY_ACCESS_ALLOWED=true \
+    -e WEB_VAULT_ENABLED=true \
+    -e SIGNUPS_ALLOWED=true \
+    vaultwarden/server:latest

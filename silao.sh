@@ -1,5 +1,5 @@
 #!/bin/bash
-sh_v="1.0"
+sh_v="1.0.0"
 
 
 gl_hui='\e[37m'
@@ -11,89 +11,328 @@ gl_bai='\033[0m'
 gl_zi='\033[35m'
 gl_slao='\033[96m'
 
-linux_ps() {
-
-	clear
-	send_stats "系统信息查询"
-
-	ip_address
-
-	cpu_info=$(lscpu | awk -F': +' '/Model name:/ {print $2; exit}')
-
-	cpu_usage_percent=$(awk '{u=$2+$4; t=$2+$4+$5; if (NR==1){u1=u; t1=t;} else printf "%.0f\n", (($2+$4-u1) * 100 / (t-t1))}' \
-		<(grep 'cpu ' /proc/stat) <(sleep 1; grep 'cpu ' /proc/stat))
-
-	cpu_cores=$(nproc)
-
-	mem_info=$(free -b | awk 'NR==2{printf "%.2f/%.2f MB (%.2f%%)", $3/1024/1024, $2/1024/1024, $3*100/$2}')
-
-	disk_info=$(df -h | awk '$NF=="/"{printf "%s/%s (%s)", $3, $2, $5}')
-
-	ipinfo=$(curl -s ipinfo.io)
-	country=$(echo "$ipinfo" | grep 'country' | awk -F': ' '{print $2}' | tr -d '",')
-	city=$(echo "$ipinfo" | grep 'city' | awk -F': ' '{print $2}' | tr -d '",')
-	isp_info=$(echo "$ipinfo" | grep 'org' | awk -F': ' '{print $2}' | tr -d '",')
 
 
-	cpu_arch=$(uname -m)
-
-	hostname=$(uname -n)
-
-	kernel_version=$(uname -r)
-
-	congestion_algorithm=$(sysctl -n net.ipv4.tcp_congestion_control)
-	queue_algorithm=$(sysctl -n net.core.default_qdisc)
-
-	# 尝试使用 lsb_release 获取系统信息
-	os_info=$(grep PRETTY_NAME /etc/os-release | cut -d '=' -f2 | tr -d '"')
-
-	output_status
-
-	current_time=$(date "+%Y-%m-%d %I:%M %p")
-
-
-	swap_info=$(free -m | awk 'NR==3{used=$3; total=$2; if (total == 0) {percentage=0} else {percentage=used*100/total}; printf "%dMB/%dMB (%d%%)", used, total, percentage}')
-
-	runtime=$(cat /proc/uptime | awk -F. '{run_days=int($1 / 86400);run_hours=int(($1 % 86400) / 3600);run_minutes=int(($1 % 3600) / 60); if (run_days > 0) printf("%d天 ", run_days); if (run_hours > 0) printf("%d时 ", run_hours); printf("%d分\n", run_minutes)}')
-
-	timezone=$(current_timezone)
-
-
-	echo ""
-	echo -e "系统信息查询"
-	echo -e "${gl_slao}------------------------"
-	echo -e "${gl_slao}主机名: ${gl_bai}$hostname"
-	echo -e "${gl_slao}运营商: ${gl_bai}$isp_info"
-	echo -e "${gl_slao}------------------------"
-	echo -e "${gl_slao}系统版本: ${gl_bai}$os_info"
-	echo -e "${gl_slao}Linux版本: ${gl_bai}$kernel_version"
-	echo -e "${gl_slao}------------------------"
-	echo -e "${gl_slao}CPU架构: ${gl_bai}$cpu_arch"
-	echo -e "${gl_slao}CPU型号: ${gl_bai}$cpu_info"
-	echo -e "${gl_slao}CPU核心数: ${gl_bai}$cpu_cores"
-	echo -e "${gl_slao}------------------------"
-	echo -e "${gl_slao}CPU占用: ${gl_bai}$cpu_usage_percent%"
-	echo -e "${gl_slao}物理内存: ${gl_bai}$mem_info"
-	echo -e "${gl_slao}虚拟内存: ${gl_bai}$swap_info"
-	echo -e "${gl_slao}硬盘占用: ${gl_bai}$disk_info"
-	echo -e "${gl_slao}------------------------"
-	echo -e "${gl_slao}$output"
-	echo -e "${gl_slao}------------------------"
-	echo -e "${gl_slao}网络拥堵算法: ${gl_bai}$congestion_algorithm $queue_algorithm"
-	echo -e "${gl_slao}------------------------"
-	echo -e "${gl_slao}公网IPv4地址: ${gl_bai}$ipv4_address"
-	echo -e "${gl_slao}公网IPv6地址: ${gl_bai}$ipv6_address"
-	echo -e "${gl_slao}------------------------"
-	echo -e "${gl_slao}地理位置: ${gl_bai}$country $city"
-	echo -e "${gl_slao}系统时区: ${gl_bai}$timezone"
-	echo -e "${gl_slao}系统时间: ${gl_bai}$current_time"
-	echo -e "${gl_slao}------------------------"
-	echo -e "${gl_slao}系统运行时长: ${gl_bai}$runtime"
-	echo
-
-
+country="default"
+cn_yuan() {
+if [ "$country" = "CN" ]; then
+	zhushi=0
+	gh_proxy="https://github.trii.cn/"
+else
+	zhushi=1  # 0 表示执行，1 表示不执行
+	gh_proxy=""
+fi
 
 }
+
+cn_yuan
+
+
+
+# 定义一个函数来执行命令
+run_command() {
+	if [ "$zhushi" -eq 0 ]; then
+		"$@"
+	fi
+}
+
+
+
+permission_granted="false"
+
+CheckFirstRun_true() {
+  if grep -q '^permission_granted="true"' /usr/local/bin/s > /dev/null 2>&1; then
+    sed -i 's/^permission_granted="false"/permission_granted="true"/' ./silao.sh
+    sed -i 's/^permission_granted="false"/permission_granted="true"/' /usr/local/bin/s
+  fi
+}
+
+CheckFirstRun_true
+
+
+# 收集功能埋点信息的函数，记录当前脚本版本号，使用时间，系统版本，CPU架构，机器所在国家和用户使用的功能名称，绝对不涉及任何敏感信息，请放心！请相信我！
+# 为什么要设计这个功能，目的更好的了解用户喜欢使用的功能，进一步优化功能推出更多符合用户需求的功能。
+# 全文可搜搜 send_stats 函数调用位置，透明开源，如有顾虑可拒绝使用。
+
+
+
+
+ENABLE_STATS="false"
+
+send_stats() {
+
+	if [ "$ENABLE_STATS" == "false" ]; then
+		return
+	fi
+
+	country=$(curl -s ipinfo.io/country)
+	os_info=$(grep PRETTY_NAME /etc/os-release | cut -d '=' -f2 | tr -d '"')
+	cpu_arch=$(uname -m)
+	curl -s -X POST "" \
+		 -H "Content-Type: application/json" \
+		 -d "{\"action\":\"$1\",\"timestamp\":\"$(date -u '+%Y-%m-%d %H:%M:%S')\",\"country\":\"$country\",\"os_info\":\"$os_info\",\"cpu_arch\":\"$cpu_arch\",\"version\":\"$sh_v\"}" &>/dev/null &
+}
+
+
+
+
+yinsiyuanquan1() {
+
+if grep -q '^ENABLE_STATS="true"' /usr/local/bin/s > /dev/null 2>&1; then
+	status_message="${gl_lv}正在采集数据${gl_bai}"
+elif grep -q '^ENABLE_STATS="false"' /usr/local/bin/s > /dev/null 2>&1; then
+	status_message="${gl_hui}采集已关闭${gl_bai}"
+else
+	status_message="无法确定的状态"
+fi
+
+}
+
+
+yinsiyuanquan2() {
+
+if grep -q '^ENABLE_STATS="false"' /usr/local/bin/s > /dev/null 2>&1; then
+	sed -i 's/^ENABLE_STATS="true"/ENABLE_STATS="false"/' ./silao.sh
+	sed -i 's/^ENABLE_STATS="true"/ENABLE_STATS="false"/' /usr/local/bin/s
+fi
+
+}
+
+
+
+yinsiyuanquan2
+cp -f ./silao.sh /usr/local/bin/s > /dev/null 2>&1
+
+
+
+CheckFirstRun_false() {
+	if grep -q '^permission_granted="false"' /usr/local/bin/s > /dev/null 2>&1; then
+		UserLicenseAgreement
+	fi
+}
+
+# 提示用户同意条款
+UserLicenseAgreement() {
+	clear
+	echo -e "${gl_slao}欢迎使用肆佬一键脚本${gl_bai}"
+	echo "首次使用脚本，请先阅读并同意用户许可协议。"
+	echo "用户许可协议: 暂无"
+	echo -e "----------------------"
+	read -r -p "是否同意以上条款？(y/n): " user_input
+
+
+	if [ "$user_input" = "y" ] || [ "$user_input" = "Y" ]; then
+		send_stats "许可同意"
+		sed -i 's/^permission_granted="false"/permission_granted="true"/' ./silao.sh
+		sed -i 's/^permission_granted="false"/permission_granted="true"/' /usr/local/bin/s
+	else
+		send_stats "许可拒绝"
+		clear
+		exit
+	fi
+}
+
+CheckFirstRun_false
+
+
+
+
+
+ip_address() {
+ipv4_address=$(curl -s ipv4.ip.sb)
+ipv6_address=$(curl -s --max-time 1 ipv6.ip.sb)
+}
+
+
+
+install() {
+	if [ $# -eq 0 ]; then
+		echo "未提供软件包参数!"
+		return
+	fi
+
+	for package in "$@"; do
+		if ! command -v "$package" &>/dev/null; then
+			echo -e "${gl_huang}正在安装 $package...${gl_bai}"
+			if command -v dnf &>/dev/null; then
+				dnf -y update
+				dnf install -y epel-release
+				dnf install -y "$package"
+			elif command -v yum &>/dev/null; then
+				yum -y update
+				yum install -y epel-release
+				yum -y install "$package"
+			elif command -v apt &>/dev/null; then
+				apt update -y
+				apt install -y "$package"
+			elif command -v apk &>/dev/null; then
+				apk update
+				apk add "$package"
+			elif command -v pacman &>/dev/null; then
+				pacman -Syu --noconfirm
+				pacman -S --noconfirm "$package"
+			elif command -v zypper &>/dev/null; then
+				zypper refresh
+				zypper install -y "$package"
+			elif command -v opkg &>/dev/null; then
+				opkg update
+				opkg install "$package"
+			else
+				echo "未知的包管理器!"
+				return
+			fi
+		else
+			echo -e "${gl_lv}$package 已经安装${gl_bai}"
+		fi
+	done
+
+	return
+}
+
+
+install_dependency() {
+	  install wget socat unzip tar
+}
+
+
+remove() {
+	if [ $# -eq 0 ]; then
+		echo "未提供软件包参数!"
+		return
+	fi
+
+	for package in "$@"; do
+		echo -e "${gl_huang}正在卸载 $package...${gl_bai}"
+		if command -v dnf &>/dev/null; then
+			dnf remove -y "${package}"*
+		elif command -v yum &>/dev/null; then
+			yum remove -y "${package}"*
+		elif command -v apt &>/dev/null; then
+			apt purge -y "${package}"*
+		elif command -v apk &>/dev/null; then
+			apk del "${package}*"
+		elif command -v pacman &>/dev/null; then
+			pacman -Rns --noconfirm "${package}"
+		elif command -v zypper &>/dev/null; then
+			zypper remove -y "${package}"
+		elif command -v opkg &>/dev/null; then
+			opkg remove "${package}"
+		else
+			echo "未知的包管理器!"
+			return
+		fi
+	done
+
+	return
+}
+
+
+# 通用 systemctl 函数，适用于各种发行版
+systemctl() {
+	COMMAND="$1"
+	SERVICE_NAME="$2"
+
+	if command -v apk &>/dev/null; then
+		service "$SERVICE_NAME" "$COMMAND"
+	else
+		/bin/systemctl "$COMMAND" "$SERVICE_NAME"
+	fi
+}
+
+
+# 重启服务
+restart() {
+	systemctl restart "$1"
+	if [ $? -eq 0 ]; then
+		echo "$1 服务已重启。"
+	else
+		echo "错误：重启 $1 服务失败。"
+	fi
+}
+
+# 启动服务
+start() {
+	systemctl start "$1"
+	if [ $? -eq 0 ]; then
+		echo "$1 服务已启动。"
+	else
+		echo "错误：启动 $1 服务失败。"
+	fi
+}
+
+# 停止服务
+stop() {
+	systemctl stop "$1"
+	if [ $? -eq 0 ]; then
+		echo "$1 服务已停止。"
+	else
+		echo "错误：停止 $1 服务失败。"
+	fi
+}
+
+# 查看服务状态
+status() {
+	systemctl status "$1"
+	if [ $? -eq 0 ]; then
+		echo "$1 服务状态已显示。"
+	else
+		echo "错误：无法显示 $1 服务状态。"
+	fi
+}
+
+
+enable() {
+	SERVICE_NAME="$1"
+	if command -v apk &>/dev/null; then
+		rc-update add "$SERVICE_NAME" default
+	else
+	   /bin/systemctl enable "$SERVICE_NAME"
+	fi
+
+	echo "$SERVICE_NAME 已设置为开机自启。"
+}
+
+
+
+break_end() {
+	  echo -e "${gl_lv}操作完成${gl_bai}"
+	  echo "按任意键继续..."
+	  read -n 1 -s -r -p ""
+	  echo ""
+	  clear
+}
+
+silao() {
+    cd ~
+    silao_sh
+}
+
+
+
+check_port() {
+
+	docker rm -f nginx >/dev/null 2>&1
+
+	# 定义要检测的端口
+	PORT=80
+
+	# 检查端口占用情况
+	install iproute2
+	result=$(ss -tulpn | grep ":\b$PORT\b")
+
+	# 判断结果并输出相应信息
+	if [ -n "$result" ]; then
+			clear
+			echo -e "${gl_hong}注意: ${gl_bai}端口 ${gl_huang}$PORT${gl_bai} 已被占用，无法安装环境，卸载以下程序后重试！"
+			echo "$result"
+			send_stats "端口冲突无法安装建站环境"
+			break_end
+			linux_ldnmp
+
+	fi
+}
+
+
 
 silao_update() {
 
@@ -145,6 +384,8 @@ silao_update() {
 
 }
 
+
+
 silao_sh() {
 while true; do
 clear
@@ -178,3 +419,143 @@ esac
 	break_end
 done
 }
+
+
+s_info() {
+send_stats "s命令参考用例"
+echo "无效参数"
+echo "-------------------"
+echo "视频介绍: https://www.bilibili.com/video/BV1ib421E7it?t=0.1"
+echo "以下是s命令参考用例："
+echo "启动脚本            s"
+echo "安装软件包          s install nano wget | s add nano wget | s 安装 nano wget"
+echo "卸载软件包          s remove nano wget | s del nano wget | s uninstall nano wget | s 卸载 nano wget"
+echo "更新系统            s update | s 更新"
+echo "清理系统垃圾        s clean | s 清理"
+
+}
+
+
+
+if [ "$#" -eq 0 ]; then
+  # 如果没有参数，运行交互式逻辑
+  silao_sh
+else
+	# 如果有参数，执行相应函数
+	case $1 in
+		install|add|安装)
+			shift
+			send_stats "安装软件"
+			install "$@"
+			;;
+		remove|del|uninstall|卸载)
+			shift
+			send_stats "卸载软件"
+			remove "$@"
+			;;
+		update|更新)
+			linux_update
+			;;
+		clean|清理)
+			linux_clean
+			;;
+		dd|重装)
+			dd_xitong
+			;;
+		bbr3|bbrv3)
+			bbrv3
+			;;
+		nhyh|内核优化)
+			Kernel_optimize
+			;;
+		trash|hsz|回收站)
+			linux_trash
+			;;
+		wp|wordpress)
+			shift
+			ldnmp_wp "$@"
+
+			;;
+		fd|rp|反代)
+			shift
+			ldnmp_Proxy "$@"
+			;;
+		status|状态)
+			shift
+			send_stats "软件状态查看"
+			status "$@"
+			;;
+		start|启动)
+			shift
+			send_stats "软件启动"
+			start "$@"
+			;;
+		stop|停止)
+			shift
+			send_stats "软件暂停"
+			stop "$@"
+			;;
+		restart|重启)
+			shift
+			send_stats "软件重启"
+			restart "$@"
+			;;
+
+		enable|autostart|开机启动)
+			shift
+			send_stats "软件开机自启"
+			enable "$@"
+			;;
+
+		ssl)
+			shift
+			if [ "$1" = "ps" ]; then
+				send_stats "查看证书状态"
+				ssl_ps
+			elif [ -z "$1" ]; then
+				add_ssl
+				send_stats "快速申请证书"
+			elif [ -n "$1" ]; then
+				add_ssl "$1"
+				send_stats "快速申请证书"
+			else
+				s_info
+			fi
+			;;
+
+		docker)
+			shift
+			case $1 in
+				install|安装)
+					send_stats "快捷安装docker"
+					install_docker
+					;;
+				ps|容器)
+					send_stats "快捷容器管理"
+					docker_ps
+					;;
+				img|镜像)
+					send_stats "快捷镜像管理"
+					docker_image
+					;;
+				*)
+					s_info
+					;;
+			esac
+			;;
+
+		web)
+		   shift
+			if [ "$1" = "cache" ]; then
+				web_cache
+			elif [ -z "$1" ]; then
+				ldnmp_web_status
+			else
+				s_info
+			fi
+			;;
+		*)
+			s_info
+			;;
+	esac
+fi
